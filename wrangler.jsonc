@@ -1,0 +1,32 @@
+{
+	// Schema reference for wrangler configuration
+	"$schema": "node_modules/wrangler/config-schema.json",
+	// Name of your worker
+	"name": "__change_me__",
+	// Entry point for your worker
+	"main": "src/worker.tsx",
+	// Compatibility settings
+	"compatibility_date": "2025-08-21",
+	"compatibility_flags": [
+		"nodejs_compat"
+	],
+	// Assets configuration
+	"assets": {
+		"binding": "ASSETS"
+	},
+	// Observability settings
+	"observability": {
+		"enabled": true
+	},
+	// Environment variables
+	"vars": {
+		// Add your environment variables here
+	},
+	"d1_databases": [
+		{
+			"binding": "campusmarket_db",
+			"database_name": "campusmarket-db",
+			"database_id": "8dadff29-3824-445e-9d1a-e7576c15304b"
+		}
+	]
+}

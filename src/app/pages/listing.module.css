@@ -1,0 +1,322 @@
+.page {
+  max-width: 1040px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 3rem;
+  color: #111827;
+  min-height: 100vh;
+}
+
+.header {
+  margin-bottom: 2rem;
+}
+
+.backButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.6rem;
+  margin-bottom: 1.5rem;
+  padding: 0.65rem 1rem;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.85rem;
+  background: #ffffff;
+  color: #111827;
+  text-decoration: none;
+  font-weight: 700;
+  transition: background 150ms ease, transform 150ms ease;
+}
+
+.backButton:hover {
+  background: #f8fafc;
+  transform: translateY(-1px);
+}
+
+.header h1 {
+  margin: 0;
+  font-size: clamp(2rem, 2.5vw, 2.75rem);
+  line-height: 1.05;
+}
+
+.subtitle {
+  margin: 0.75rem 0 0;
+  color: #475569;
+  max-width: 42rem;
+  line-height: 1.7;
+}
+
+.detailGrid {
+  display: grid;
+  gap: 1.75rem;
+  grid-template-columns: minmax(260px, 1fr) 1.3fr;
+  align-items: start;
+}
+
+.imageFrame {
+  min-height: 420px;
+  border-radius: 1.25rem;
+  background: #eff6ff;
+  overflow: hidden;
+  box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08);
+}
+
+.listingImage {
+  width: 100%;
+  height: 100%;
+  min-height: 420px;
+  display: block;
+  object-fit: cover;
+}
+
+.imagePlaceholderLarge {
+  min-height: 420px;
+  background: linear-gradient(135deg, #eef2ff, #dbeafe);
+  display: grid;
+  place-items: center;
+  color: #1e3a8a;
+  font-size: 0.95rem;
+  font-weight: 700;
+}
+
+.detailBody {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.badgeRow {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+.badge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  background: #eff6ff;
+  color: #1e3a8a;
+  font-size: 0.92rem;
+  font-weight: 600;
+}
+
+.soldBadge {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.5rem 0.9rem;
+  border-radius: 999px;
+  background: #fee2e2;
+  color: #991b1b;
+  font-size: 0.92rem;
+  font-weight: 800;
+  text-transform: uppercase;
+  letter-spacing: 0.06em;
+}
+
+.priceRow {
+  display: flex;
+  justify-content: flex-start;
+}
+
+.price {
+  font-size: 2.2rem;
+  font-weight: 800;
+  color: #0f172a;
+}
+
+.section {
+  padding: 1.35rem 1.35rem 1.25rem;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 1rem;
+  background: #ffffff;
+}
+
+.sectionTitle {
+  margin: 0 0 0.75rem;
+  font-size: 1rem;
+  font-weight: 700;
+  color: #0f172a;
+}
+
+.description {
+  margin: 0;
+  color: #334155;
+  line-height: 1.75;
+}
+
+.metaList {
+  list-style: none;
+  padding: 0;
+  margin: 0;
+  display: grid;
+  gap: 0.9rem;
+}
+
+.metaList li {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  color: #475569;
+  font-size: 0.98rem;
+}
+
+.metaList strong {
+  color: #111827;
+}
+
+.sellerSection {
+  display: flex;
+  justify-content: space-between;
+  gap: 1rem;
+  align-items: flex-start;
+  padding: 1.35rem;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 1rem;
+  background: #ffffff;
+}
+
+.sellerName {
+  margin: 0;
+  color: #111827;
+  font-size: 1rem;
+  font-weight: 800;
+}
+
+.sellerMeta {
+  margin: 0.35rem 0 0;
+  color: #64748b;
+  line-height: 1.5;
+}
+
+.sellerLink {
+  display: inline-flex;
+  margin-top: 0.65rem;
+  color: #1d4ed8;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.sellerLink:hover {
+  text-decoration: underline;
+}
+
+.contactPanel {
+  display: grid;
+  gap: 0.6rem;
+  min-width: min(100%, 280px);
+}
+
+.contactPanel textarea {
+  width: 100%;
+  border: 1px solid #cbd5e1;
+  border-radius: 0.85rem;
+  padding: 0.75rem;
+  resize: vertical;
+  font: inherit;
+}
+
+.contactButton {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.75rem;
+  padding: 0.75rem 1rem;
+  border: none;
+  border-radius: 0.85rem;
+  background: #2563eb;
+  color: #ffffff;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+  transition: background 150ms ease, transform 150ms ease;
+}
+
+.contactButton:hover {
+  background: #1d4ed8;
+  transform: translateY(-1px);
+}
+
+.reportButton {
+  align-self: flex-start;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.5rem;
+  padding: 0.65rem 1rem;
+  border: 1px solid #fecaca;
+  border-radius: 0.85rem;
+  background: #fee2e2;
+  color: #991b1b;
+  cursor: pointer;
+  font: inherit;
+  font-weight: 800;
+}
+
+.actionStatus {
+  margin: -0.75rem 0 0;
+  color: #475569;
+  font-size: 0.92rem;
+  font-weight: 700;
+}
+
+.relatedSection {
+  margin-top: 2rem;
+}
+
+.relatedSection h2 {
+  margin: 0 0 1rem;
+  font-size: 1.25rem;
+}
+
+.relatedGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+  gap: 1rem;
+}
+
+.relatedCard {
+  display: grid;
+  gap: 0.45rem;
+  padding: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.3);
+  border-radius: 1rem;
+  background: #ffffff;
+  color: inherit;
+  text-decoration: none;
+  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.05);
+}
+
+.relatedCard span {
+  color: #0f172a;
+  font-weight: 800;
+}
+
+.relatedCard small {
+  color: #64748b;
+}
+
+@media (max-width: 860px) {
+  .detailGrid {
+    grid-template-columns: 1fr;
+  }
+
+  .sellerSection {
+    align-items: stretch;
+    flex-direction: column;
+  }
+}
+
+@media (max-width: 640px) {
+  .page {
+    padding: 1.5rem 1rem 2rem;
+  }
+
+  .imageFrame,
+  .listingImage,
+  .imagePlaceholderLarge {
+    min-height: 260px;
+  }
+}

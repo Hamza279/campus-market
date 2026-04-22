@@ -1,0 +1,130 @@
+.page {
+  max-width: 880px;
+  margin: 0 auto;
+  padding: 2rem 1.5rem 3rem;
+  color: #111827;
+  min-height: 100vh;
+}
+
+.header {
+  margin-bottom: 2rem;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: clamp(2rem, 2.5vw, 2.5rem);
+  line-height: 1.05;
+}
+
+.subtitle {
+  margin: 0.75rem 0 0;
+  color: #475569;
+  max-width: 42rem;
+  line-height: 1.7;
+}
+
+.form {
+  display: grid;
+  gap: 1.25rem;
+}
+
+.formRow,
+.formRowHalf {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.formRowGroup {
+  display: grid;
+  gap: 1rem;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+label {
+  font-weight: 700;
+  color: #0f172a;
+}
+
+input,
+textarea {
+  width: 100%;
+  border-radius: 0.85rem;
+  border: 1px solid #d1d5db;
+  background: #ffffff;
+  color: #111827;
+  padding: 0.95rem 1rem;
+  font-size: 1rem;
+  outline: none;
+  transition: border-color 150ms ease, box-shadow 150ms ease;
+}
+
+input:focus,
+textarea:focus {
+  border-color: #93c5fd;
+  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
+}
+
+textarea {
+  min-height: 140px;
+  resize: vertical;
+}
+
+.imagePlaceholder {
+  min-height: 160px;
+  border-radius: 1rem;
+  border: 1px dashed rgba(148, 163, 184, 0.7);
+  background: #f8fafc;
+  display: grid;
+  place-items: center;
+  color: #475569;
+  font-weight: 600;
+  overflow: hidden;
+}
+
+.imagePreview {
+  width: 100%;
+  height: 220px;
+  display: block;
+  object-fit: cover;
+}
+
+.formActions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 1rem;
+  align-items: center;
+}
+
+.submitButton,
+.cancelButton {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  padding: 0.95rem 1.4rem;
+  border-radius: 0.95rem;
+  font-weight: 700;
+  text-decoration: none;
+}
+
+.submitButton {
+  background: #2563eb;
+  color: #ffffff;
+  border: none;
+  cursor: pointer;
+}
+
+.submitButton:hover {
+  background: #1d4ed8;
+}
+
+.cancelButton {
+  background: #f8fafc;
+  color: #111827;
+  border: 1px solid #cbd5e1;
+}
+
+@media (max-width: 720px) {
+  .formRowGroup {
+    grid-template-columns: 1fr;
+  }
+}
