@@ -1,8 +1,10 @@
 import { render, route } from "rwsdk/router";
-  import { defineApp } from "rwsdk/worker";
+import { SyncedStateServer, syncedStateRoutes } from "rwsdk/use-synced-state/worker";
+import { defineApp } from "rwsdk/worker";
 
   import { Document } from "@/app/document";
   import { setCommonHeaders } from "@/app/headers";
+  import { AppShell } from "@/app/shared/AppShell";
   import { Home } from "@/app/pages/home";
   import { Listings } from "@/app/pages/listings";
   import { Sell } from "@/app/pages/sell";
@@ -10,7 +12,13 @@ import { render, route } from "rwsdk/router";
   import { Edit } from "@/app/pages/edit";
   import { ListingDetail } from "@/app/pages/listing";
   import { SellerProfile } from "@/app/pages/seller";
-  import type { Listing } from "@/app/pages/listings.data";
+  import { Messages } from "@/app/pages/messages";
+  import { SavedItems } from "@/app/pages/saved";
+import { getImageUrlValidationError, normalizeImageUrlForSave } from "@/app/pages/image-url";
+import { LISTINGS_REALTIME_ROOM, NEW_LISTING_EVENT_KEY, type NewListingEvent } from "@/app/pages/listings.realtime";
+import type { Listing } from "@/app/pages/listings.data";
+
+export { SyncedStateServer };
 
   type ListingRow = {
     id: string;
@@ -55,124 +63,124 @@ import { render, route } from "rwsdk/router";
     sellerName: string;
   };
 
-  let schemaReady: Promise<void> | null = null;
-  const DEFAULT_USER_ID = "campus-user";
-  const DEFAULT_SELLER_NAME = "Campus User";
+let schemaReady: Promise<void> | null = null;
+const DEFAULT_USER_ID = "campus-user";
+const DEFAULT_SELLER_NAME = "Campus User";
 
-  const getRequester = (request: Request) => {
-    const userId = request.headers.get("x-campus-user-id")?.trim() || DEFAULT_USER_ID;
-    const role = request.headers.get("x-campus-user-role")?.trim().toLowerCase() || "user";
-    return {
-      userId,
-      isAdmin: role === "admin",
-    };
+const getRequester = (request: Request) => {
+  const userId = request.headers.get("x-campus-user-id")?.trim() || DEFAULT_USER_ID;
+  const role = request.headers.get("x-campus-user-role")?.trim().toLowerCase() || "user";
+  return {
+    userId,
+    isAdmin: role === "admin",
   };
+};
 
-  const canManageListing = (request: Request, listing: Listing) => {
-    const requester = getRequester(request);
-    return requester.isAdmin || listing.ownerId === requester.userId;
-  };
+const canManageListing = (request: Request, listing: Listing) => {
+  const requester = getRequester(request);
+  return requester.isAdmin || listing.ownerId === requester.userId;
+};
 
-  const ensureMarketplaceSchema = (db: D1Database) => {
-    schemaReady ??= (async () => {
-      const statements = [
-        "ALTER TABLE listings ADD COLUMN category TEXT NOT NULL DEFAULT 'Other'",
-        "ALTER TABLE listings ADD COLUMN owner_id TEXT NOT NULL DEFAULT 'campus-admin'",
-        "ALTER TABLE listings ADD COLUMN seller_name TEXT NOT NULL DEFAULT 'Campus User'",
-      ];
+const ensureMarketplaceSchema = (db: D1Database) => {
+  schemaReady ??= (async () => {
+    const statements = [
+      "ALTER TABLE listings ADD COLUMN category TEXT NOT NULL DEFAULT 'Other'",
+      "ALTER TABLE listings ADD COLUMN owner_id TEXT NOT NULL DEFAULT 'campus-admin'",
+      "ALTER TABLE listings ADD COLUMN seller_name TEXT NOT NULL DEFAULT 'Campus User'",
+    ];
 
-      for (const statement of statements) {
-        try {
-          await db.prepare(statement).run();
-        } catch (error) {
-          const message = error instanceof Error ? error.message : String(error);
-          if (!message.toLowerCase().includes("duplicate column")) {
-            throw error;
-          }
+    for (const statement of statements) {
+      try {
+        await db.prepare(statement).run();
+      } catch (error) {
+        const message = error instanceof Error ? error.message : String(error);
+        if (!message.toLowerCase().includes("duplicate column")) {
+          throw error;
         }
       }
-    })();
-
-    return schemaReady;
-  };
-
-  const json = (data: unknown, init?: ResponseInit) => {
-    return Response.json(data, init);
-  };
-
-  const headersToRecord = (headers: Headers): Record<string, string> => {
-    const record: Record<string, string> = {};
-    headers.forEach((value, key) => {
-      record[key] = value;
-    });
-    return record;
-  };
-
-  const logListingCreateDebug = (
-    label: string,
-    details: {
-      request: Request;
-      rawBodyText: string;
-      parsedPayload: unknown;
-      sql: string;
-      boundValues: unknown[];
-      error?: unknown;
-    },
-  ) => {
-    console.error(label, {
-      method: details.request.method,
-      headers: headersToRecord(details.request.headers),
-      rawBodyText: details.rawBodyText,
-      parsedPayload: details.parsedPayload,
-      sql: details.sql,
-      boundValues: details.boundValues,
-      d1Error:
-        details.error instanceof Error
-          ? {
-              name: details.error.name,
-              message: details.error.message,
-              stack: details.error.stack,
-            }
-          : details.error,
-    });
-  };
-
-  const toListing = (row: ListingRow): Listing => {
-    return {
-      id: row.id,
-      title: row.title,
-      price: row.price,
-      location: row.location,
-      condition: row.item_condition,
-      category: row.category || "Other",
-      description: row.description,
-      image: row.image,
-      sold: row.sold === 1,
-      isSeeded: row.is_seeded === 1,
-      ownerId: row.owner_id || DEFAULT_USER_ID,
-      sellerName: row.seller_name || DEFAULT_SELLER_NAME,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    };
-  };
-
-  const isListingPayload = (value: unknown): value is ListingPayload => {
-    return typeof value === "object" && value !== null && !Array.isArray(value);
-  };
-
-  const optionalStringField = (
-    payload: ListingPayload,
-    key: keyof Pick<ListingPayload, "title" | "price" | "location" | "condition" | "category" | "description" | "image">,
-  ): string | undefined => {
-    const value = payload[key];
-    if (value === undefined) {
-      return undefined;
     }
-    return typeof value === "string" ? value : undefined;
-  };
+  })();
 
-  const validateListingPayload = (payload: ListingPayload): string | null => {
-    const stringFields = ["title", "price", "location", "condition", "category", "description", "image"] as const;
+  return schemaReady;
+};
+
+const json = (data: unknown, init?: ResponseInit) => {
+  return Response.json(data, init);
+};
+
+const headersToRecord = (headers: Headers): Record<string, string> => {
+  const record: Record<string, string> = {};
+  headers.forEach((value, key) => {
+    record[key] = value;
+  });
+  return record;
+};
+
+const logListingCreateDebug = (
+  label: string,
+  details: {
+    request: Request;
+    rawBodyText: string;
+    parsedPayload: unknown;
+    sql: string;
+    boundValues: unknown[];
+    error?: unknown;
+  },
+) => {
+  console.error(label, {
+    method: details.request.method,
+    headers: headersToRecord(details.request.headers),
+    rawBodyText: details.rawBodyText,
+    parsedPayload: details.parsedPayload,
+    sql: details.sql,
+    boundValues: details.boundValues,
+    d1Error:
+      details.error instanceof Error
+        ? {
+            name: details.error.name,
+            message: details.error.message,
+            stack: details.error.stack,
+          }
+        : details.error,
+  });
+};
+
+const toListing = (row: ListingRow): Listing => {
+  return {
+    id: row.id,
+    title: row.title,
+    price: row.price,
+    location: row.location,
+    condition: row.item_condition,
+    category: row.category || "Other",
+    description: row.description,
+    image: row.image,
+    sold: row.sold === 1,
+    isSeeded: row.is_seeded === 1,
+    ownerId: row.owner_id || DEFAULT_USER_ID,
+    sellerName: row.seller_name || DEFAULT_SELLER_NAME,
+    createdAt: row.created_at,
+    updatedAt: row.updated_at,
+  };
+};
+
+const isListingPayload = (value: unknown): value is ListingPayload => {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+};
+
+const optionalStringField = (
+  payload: ListingPayload,
+  key: keyof Pick<ListingPayload, "title" | "price" | "location" | "condition" | "category" | "description" | "image">,
+): string | undefined => {
+  const value = payload[key];
+  if (value === undefined) {
+    return undefined;
+  }
+  return typeof value === "string" ? value : undefined;
+};
+
+const validateListingPayload = (payload: ListingPayload): string | null => {
+  const stringFields = ["title", "price", "location", "condition", "category", "description", "image"] as const;
 
     for (const field of stringFields) {
       const value = payload[field];
@@ -189,32 +197,39 @@ import { render, route } from "rwsdk/router";
       return "isSeeded must be a boolean.";
     }
 
-    return null;
-  };
-
-  const normalizeListingPayload = (payload: ListingPayload): NormalizedListingPayload => {
-    return {
-      title: optionalStringField(payload, "title")?.trim() || "Untitled item",
-      price: optionalStringField(payload, "price")?.trim() || "$0",
-      location: optionalStringField(payload, "location")?.trim() || "Campus",
-      condition: optionalStringField(payload, "condition")?.trim() || "Good",
-      category: optionalStringField(payload, "category")?.trim() || "Other",
-      description: optionalStringField(payload, "description")?.trim() || "No description provided.",
-      image: optionalStringField(payload, "image")?.trim() || "",
-      sold: payload.sold === true ? 1 : 0,
-      isSeeded: payload.isSeeded === true ? 1 : 0,
-      ownerId: DEFAULT_USER_ID,
-      sellerName: DEFAULT_SELLER_NAME,
-    };
-  };
-
-  const validateInsertParams = (values: unknown[]): string | null => {
-    for (const value of values) {
-      const validType = typeof value === "string" || typeof value === "number";
-      if (!validType || value === undefined || value === null) {
-        return "Listing insert values must be plain strings or numbers.";
+    if (payload.image !== undefined) {
+      const imageError = getImageUrlValidationError(payload.image);
+      if (imageError) {
+        return imageError;
       }
     }
+
+    return null;
+};
+
+const normalizeListingPayload = (payload: ListingPayload): NormalizedListingPayload => {
+  return {
+    title: optionalStringField(payload, "title")?.trim() || "Untitled item",
+    price: optionalStringField(payload, "price")?.trim() || "$0",
+    location: optionalStringField(payload, "location")?.trim() || "Campus",
+    condition: optionalStringField(payload, "condition")?.trim() || "Good",
+    category: optionalStringField(payload, "category")?.trim() || "Other",
+    description: optionalStringField(payload, "description")?.trim() || "No description provided.",
+    image: normalizeImageUrlForSave(optionalStringField(payload, "image") ?? ""),
+    sold: payload.sold === true ? 1 : 0,
+    isSeeded: payload.isSeeded === true ? 1 : 0,
+    ownerId: DEFAULT_USER_ID,
+    sellerName: DEFAULT_SELLER_NAME,
+  };
+};
+
+const validateInsertParams = (values: unknown[]): string | null => {
+  for (const value of values) {
+    const validType = typeof value === "string" || typeof value === "number";
+    if (!validType || value === undefined || value === null) {
+      return "Listing insert values must be plain strings or numbers.";
+    }
+  }
 
     const [id, title, price, location, condition, category, description, , , , ownerId, sellerName] = values;
     const requiredStrings = { id, title, price, location, condition, category, description, ownerId, sellerName };
@@ -224,11 +239,11 @@ import { render, route } from "rwsdk/router";
       }
     }
 
-    return null;
-  };
+  return null;
+};
 
-  const getListingById = async (db: D1Database, id: string): Promise<Listing | null> => {
-    await ensureMarketplaceSchema(db);
+const getListingById = async (db: D1Database, id: string): Promise<Listing | null> => {
+  await ensureMarketplaceSchema(db);
 
     const row = await db
       .prepare(
@@ -255,13 +270,31 @@ import { render, route } from "rwsdk/router";
       .bind(id)
       .first<ListingRow>();
 
-    return row ? toListing(row) : null;
+  return row ? toListing(row) : null;
+};
+
+const publishNewListingEvent = async (env: Env, listing: Listing) => {
+  const roomId = env.SYNCED_STATE_SERVER.idFromName(LISTINGS_REALTIME_ROOM);
+  const room = env.SYNCED_STATE_SERVER.get(roomId);
+  const event: NewListingEvent = {
+    eventId: crypto.randomUUID(),
+    listingId: listing.id,
+    title: listing.title,
+    occurredAt: new Date().toISOString(),
   };
 
-  const createApp = (env: Env) => {
-    return defineApp([
-      setCommonHeaders(),
-      render(Document, [
+  await room.setState(event, NEW_LISTING_EVENT_KEY);
+};
+
+const withAppShell = (children: React.ReactNode) => {
+  return <AppShell>{children}</AppShell>;
+};
+
+const createApp = (env: Env) => {
+  return defineApp([
+    setCommonHeaders(),
+    ...syncedStateRoutes(() => env.SYNCED_STATE_SERVER),
+    render(Document, [
         route("/api/listings", {
           get: async () => {
             await ensureMarketplaceSchema(env.campusmarket_db);
@@ -405,6 +438,9 @@ import { render, route } from "rwsdk/router";
             }
 
             const created = await getListingById(env.campusmarket_db, id);
+            if (created) {
+              await publishNewListingEvent(env, created);
+            }
 
             return json(created, { status: 201 });
           },
@@ -511,6 +547,11 @@ import { render, route } from "rwsdk/router";
               return json({ error: "Invalid JSON body." }, { status: 400 });
             }
 
+            const payloadError = validateListingPayload(payload);
+            if (payloadError) {
+              return json({ error: payloadError }, { status: 400 });
+            }
+
             const listing = normalizeListingPayload({
               ...existing,
               ...payload,
@@ -577,22 +618,24 @@ import { render, route } from "rwsdk/router";
           },
         }),
 
-        route("/", Home),
-        route("/listings", Listings),
-        route("/sell", () => <Sell />),
-        route("/dashboard", () => <Dashboard />),
-        route("/edit/:id", ({ params }) => <Edit listingId={params.id} />),
-        route("/listings/:id", ({ params }) => <ListingDetail listingId={params.id} />),
-        route("/listing/:id", ({ params }) => <ListingDetail listingId={params.id} />),
-        route("/seller/:id", ({ params }) => <SellerProfile sellerId={params.id} />),
-      ]),
-    ]);
-  };
+        route("/", () => withAppShell(<Home />)),
+        route("/listings", () => withAppShell(<Listings />)),
+        route("/sell", () => withAppShell(<Sell />)),
+        route("/dashboard", () => withAppShell(<Dashboard />)),
+        route("/messages", () => withAppShell(<Messages />)),
+        route("/saved", () => withAppShell(<SavedItems />)),
+        route("/edit/:id", ({ params }) => withAppShell(<Edit listingId={params.id} />)),
+        route("/listings/:id", ({ params }) => withAppShell(<ListingDetail listingId={params.id} />)),
+        route("/listing/:id", ({ params }) => withAppShell(<ListingDetail listingId={params.id} />)),
+        route("/seller/:id", ({ params }) => withAppShell(<SellerProfile sellerId={params.id} />)),
+    ]),
+  ]);
+};
 
-  export default {
-    async fetch(request: Request, env: Env, cf: ExecutionContext) {
-      return createApp(env).fetch(request, env, cf);
-    },
-  };
+export default {
+  async fetch(request: Request, env: Env, cf: ExecutionContext) {
+    return createApp(env).fetch(request, env, cf);
+  },
+};
 
  

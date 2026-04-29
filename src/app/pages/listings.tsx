@@ -1,9 +1,11 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useSyncedState } from "rwsdk/use-synced-state/client";
 import styles from "./listings.module.css";
-import { getDisplayImageUrl } from "./image-url";
+import { ListingCard } from "@/app/shared/ListingCard";
 import { getListings, Listing } from "./listings.data";
+import { LISTINGS_REALTIME_ROOM, NEW_LISTING_EVENT_KEY, type NewListingEvent } from "./listings.realtime";
 
 type SortOption = "newest" | "price-asc" | "price-desc";
 const PAGE_SIZE = 6;
@@ -50,6 +52,7 @@ const getPostedLabel = (listing: Listing): string => {
 export const Listings = () => {
   const [items, setItems] = useState<Listing[]>([]);
   const [error, setError] = useState<string | null>(null);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [locationFilter, setLocationFilter] = useState("");
   const [conditionFilter, setConditionFilter] = useState("");
@@ -61,6 +64,62 @@ export const Listings = () => {
   const [showSavedOnly, setShowSavedOnly] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [savedIds, setSavedIds] = useState<Set<string>>(() => new Set());
+  const [highlightedIds, setHighlightedIds] = useState<Set<string>>(() => new Set());
+  const [listingEvent] = useSyncedState<NewListingEvent | null>(null, NEW_LISTING_EVENT_KEY, LISTINGS_REALTIME_ROOM);
+  const handledEventIdRef = useRef<string | null>(null);
+  const mountedAtRef = useRef(Date.now());
+  const toastTimeoutRef = useRef<number | null>(null);
+  const highlightTimeoutsRef = useRef<Map<string, number>>(new Map());
+
+  const loadListings = useCallback(async () => {
+    try {
+      const listings = await getListings();
+      setItems(listings);
+      setError(null);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Failed to load listings.");
+    }
+  }, []);
+
+  const showNewListingToast = useCallback(() => {
+    if (toastTimeoutRef.current !== null) {
+      window.clearTimeout(toastTimeoutRef.current);
+    }
+
+    setToastMessage("New item just posted");
+    toastTimeoutRef.current = window.setTimeout(() => {
+      setToastMessage(null);
+      toastTimeoutRef.current = null;
+    }, 3000);
+  }, []);
+
+  const highlightListing = useCallback((listingId: string) => {
+    setHighlightedIds((current) => {
+      const next = new Set(current);
+      next.add(listingId);
+      return next;
+    });
+
+    const existingTimeout = highlightTimeoutsRef.current.get(listingId);
+    if (existingTimeout !== undefined) {
+      window.clearTimeout(existingTimeout);
+    }
+
+    const timeoutId = window.setTimeout(() => {
+      setHighlightedIds((current) => {
+        if (!current.has(listingId)) {
+          return current;
+        }
+
+        const next = new Set(current);
+        next.delete(listingId);
+        return next;
+      });
+      highlightTimeoutsRef.current.delete(listingId);
+    }, 3000);
+
+    highlightTimeoutsRef.current.set(listingId, timeoutId);
+  }, []);
 
   useEffect(() => {
     try {
@@ -85,22 +144,61 @@ export const Listings = () => {
     let cancelled = false;
 
     void (async () => {
-      try {
-        const listings = await getListings();
-        if (!cancelled) {
-          setItems(listings);
-        }
-      } catch (loadError) {
-        if (!cancelled) {
-          setError(loadError instanceof Error ? loadError.message : "Failed to load listings.");
-        }
+      if (!cancelled) {
+        await loadListings();
       }
     })();
 
+    const refreshOnReturn = () => {
+      void loadListings();
+    };
+
+    window.addEventListener("focus", refreshOnReturn);
+    window.addEventListener("pageshow", refreshOnReturn);
+
     return () => {
       cancelled = true;
+      window.removeEventListener("focus", refreshOnReturn);
+      window.removeEventListener("pageshow", refreshOnReturn);
+    };
+  }, [loadListings]);
+
+  useEffect(() => {
+    return () => {
+      if (toastTimeoutRef.current !== null) {
+        window.clearTimeout(toastTimeoutRef.current);
+      }
+
+      highlightTimeoutsRef.current.forEach((timeoutId) => {
+        window.clearTimeout(timeoutId);
+      });
+      highlightTimeoutsRef.current.clear();
     };
   }, []);
+
+  useEffect(() => {
+    if (!listingEvent) {
+      return;
+    }
+
+    if (handledEventIdRef.current === listingEvent.eventId) {
+      return;
+    }
+
+    const eventTime = Date.parse(listingEvent.occurredAt);
+    const isFreshEvent = Number.isFinite(eventTime) && eventTime >= mountedAtRef.current - 1500;
+    const isFirstObservedEvent = handledEventIdRef.current === null;
+
+    handledEventIdRef.current = listingEvent.eventId;
+
+    if (isFirstObservedEvent && !isFreshEvent) {
+      return;
+    }
+
+    showNewListingToast();
+    highlightListing(listingEvent.listingId);
+    void loadListings();
+  }, [highlightListing, listingEvent, loadListings, showNewListingToast]);
 
   const locations = useMemo(() => {
     return Array.from(new Set(items.map((item) => item.location).filter(Boolean))).sort((a, b) =>
@@ -207,9 +305,22 @@ export const Listings = () => {
         </a>
       </header>
 
+      {toastMessage ? (
+        <div className={styles.toast} role="status" aria-live="polite">
+          {toastMessage}
+        </div>
+      ) : null}
+
       {error ? <p>{error}</p> : null}
 
       <section className={styles.filters} aria-label="Listing filters">
+        <div className={styles.filtersHeader}>
+          <div>
+            <h2>Find the right item</h2>
+            <p>Search by title, narrow by campus details, then sort the results.</p>
+          </div>
+        </div>
+
         <div className={styles.searchRow}>
           <label className={styles.field}>
             <span>Search</span>
@@ -311,79 +422,60 @@ export const Listings = () => {
       {filteredItems.length === 0 ? (
         <div className={styles.emptyState}>
           <h2>No listings match your filters</h2>
-          <p>Try a different search, price range, location, or condition.</p>
+          <p>Try clearing saved-only mode, widening your price range, or searching a different keyword.</p>
+          <button
+            type="button"
+            className={styles.clearButton}
+            onClick={() => {
+              setSearchQuery("");
+              setLocationFilter("");
+              setConditionFilter("");
+              setCategoryFilter("");
+              setMinPrice("");
+              setMaxPrice("");
+              setHideSold(false);
+              setShowSavedOnly(false);
+              setSortOption("newest");
+            }}
+          >
+            Clear filters
+          </button>
         </div>
       ) : null}
 
       <div className={styles.grid}>
         {visibleItems.map((item) => {
           const saved = savedIds.has(item.id);
-          const imageUrl = getDisplayImageUrl(item.image);
 
           return (
-            <article key={item.id} className={styles.card}>
-              <a href={`/listings/${item.id}`} className={styles.cardLink}>
-                <div className={styles.imageFrame}>
-                  {imageUrl ? (
-                    <img src={imageUrl} alt={item.title} className={styles.cardImage} loading="lazy" />
-                  ) : (
-                    <div className={styles.imagePlaceholder}>
-                      <span>Image</span>
-                    </div>
-                  )}
-                </div>
-              </a>
-              <div className={styles.cardBody}>
-                <div className={styles.cardHeader}>
-                  <a href={`/listings/${item.id}`} className={styles.titleLink}>
-                    <h2 className={styles.cardTitle}>{item.title}</h2>
-                  </a>
-                  <button
-                    type="button"
-                    className={saved ? `${styles.saveButton} ${styles.saveButtonActive}` : styles.saveButton}
-                    aria-pressed={saved}
-                    aria-label={saved ? `Unsave ${item.title}` : `Save ${item.title}`}
-                    onClick={() => {
-                      setSavedIds((current) => {
-                        const next = new Set(current);
-                        if (next.has(item.id)) {
-                          next.delete(item.id);
-                        } else {
-                          next.add(item.id);
-                        }
-                        return next;
-                      });
-                    }}
-                  >
-                    {saved ? "Saved" : "Save"}
-                  </button>
-                </div>
-
-                <div className={styles.detailRow}>
-                  <span className={styles.categoryBadge}>{item.category}</span>
-                  <span className={styles.conditionBadge}>{item.condition}</span>
-                  {item.sold ? <span className={styles.soldBadge}>Sold</span> : null}
-                </div>
-
-                <p className={styles.description}>{item.description}</p>
-
-                <div className={styles.cardFooter}>
-                  <div className={styles.listingDetails}>
-                    <p className={styles.meta}>
-                      <strong>Location:</strong> {item.location}
-                    </p>
-                    <p className={styles.meta}>
-                      <strong>Seller:</strong> Campus User
-                    </p>
-                    <p className={styles.meta}>
-                      <strong>Category:</strong> {item.category}
-                    </p>
-                    <p className={styles.postedDate}>{getPostedLabel(item)}</p>
-                  </div>
-                  <span className={styles.price}>{item.price}</span>
-                </div>
-              </div>
-            </article>
+            <ListingCard
+              key={item.id}
+              listing={item}
+              href={`/listings/${item.id}`}
+              postedLabel={getPostedLabel(item)}
+              highlighted={highlightedIds.has(item.id)}
+              topAction={
+                <button
+                  type="button"
+                  className={saved ? `${styles.saveButton} ${styles.saveButtonActive}` : styles.saveButton}
+                  aria-pressed={saved}
+                  aria-label={saved ? `Unsave ${item.title}` : `Save ${item.title}`}
+                  onClick={() => {
+                    setSavedIds((current) => {
+                      const next = new Set(current);
+                      if (next.has(item.id)) {
+                        next.delete(item.id);
+                      } else {
+                        next.add(item.id);
+                      }
+                      return next;
+                    });
+                  }}
+                >
+                  {saved ? "Saved" : "Save"}
+                </button>
+              }
+            />
           );
         })}
       </div>

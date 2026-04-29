@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import styles from "./edit.module.css";
-import { getDisplayImageUrl } from "./image-url";
+import { getImageUrlValidationError, getListingImageSrc, normalizeImageUrlForSave } from "./image-url";
 import { getListing, updateListing, Listing } from "./listings.data";
 
 interface EditProps {
@@ -22,8 +22,10 @@ export const Edit = ({ listingId }: EditProps) => {
   });
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [imageError, setImageError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const previewImageUrl = getDisplayImageUrl(form.image);
+  const normalizedImageUrl = normalizeImageUrlForSave(form.image);
+  const previewImageUrl = getListingImageSrc(form.image);
 
   useEffect(() => {
     let cancelled = false;
@@ -62,11 +64,21 @@ export const Edit = ({ listingId }: EditProps) => {
   const handleChange = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = event.target;
     setForm((current) => ({ ...current, [name]: value }));
+    if (name === "image") {
+      setImageError(null);
+    }
   };
 
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
     if (!listing) return;
+
+    const nextImageError = getImageUrlValidationError(form.image);
+    setImageError(nextImageError);
+    if (nextImageError) {
+      setError("Please fix the highlighted fields.");
+      return;
+    }
 
     setSaving(true);
     setError(null);
@@ -80,7 +92,7 @@ export const Edit = ({ listingId }: EditProps) => {
         condition: form.condition,
         category: form.category,
         description: form.description,
-        image: previewImageUrl,
+        image: normalizedImageUrl,
       });
 
       if (updated) {
@@ -200,13 +212,11 @@ export const Edit = ({ listingId }: EditProps) => {
             type="text"
             value={form.image}
             onChange={handleChange}
+            aria-invalid={imageError ? "true" : "false"}
           />
+          {imageError ? <p className={styles.fieldError}>{imageError}</p> : null}
           <div className={styles.imagePlaceholder}>
-            {previewImageUrl ? (
-              <img src={previewImageUrl} alt="Listing preview" className={styles.imagePreview} />
-            ) : (
-              <span>Image preview</span>
-            )}
+            <img src={previewImageUrl} alt="Listing preview" className={styles.imagePreview} />
           </div>
         </div>
 

@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from "react";
 import styles from "./listing.module.css";
-import { getDisplayImageUrl } from "./image-url";
+import { getListingImageSrc } from "./image-url";
 import { contactSeller, getListing, getListings, Listing, reportListing } from "./listings.data";
 
 interface ListingDetailProps {
@@ -94,7 +94,7 @@ export const ListingDetail = ({ listingId }: ListingDetailProps) => {
     );
   }
 
-  const imageUrl = getDisplayImageUrl(listing.image);
+  const imageUrl = getListingImageSrc(listing.image);
   const recentListings = allListings.filter((item) => item.id !== listing.id).slice(0, 3);
   const similarListings = allListings
     .filter((item) => item.id !== listing.id && item.category === listing.category)
@@ -133,13 +133,7 @@ export const ListingDetail = ({ listingId }: ListingDetailProps) => {
 
       <div className={styles.detailGrid}>
         <div className={styles.imageFrame}>
-          {imageUrl ? (
-            <img src={imageUrl} alt={listing.title} className={styles.listingImage} />
-          ) : (
-            <div className={styles.imagePlaceholderLarge}>
-              <span>Image</span>
-            </div>
-          )}
+          <img src={imageUrl} alt={listing.title} className={styles.listingImage} />
         </div>
 
         <div className={styles.detailBody}>

@@ -2,7 +2,7 @@
 	// Schema reference for wrangler configuration
 	"$schema": "node_modules/wrangler/config-schema.json",
 	// Name of your worker
-	"name": "__change_me__",
+	"name": "campus-market",
 	// Entry point for your worker
 	"main": "src/worker.tsx",
 	// Compatibility settings
@@ -27,6 +27,22 @@
 			"binding": "campusmarket_db",
 			"database_name": "campusmarket-db",
 			"database_id": "8dadff29-3824-445e-9d1a-e7576c15304b"
+		}
+	],
+	"durable_objects": {
+		"bindings": [
+			{
+				"name": "SYNCED_STATE_SERVER",
+				"class_name": "SyncedStateServer"
+			}
+		]
+	},
+	"migrations": [
+		{
+			"tag": "v1",
+			"new_sqlite_classes": [
+				"SyncedStateServer"
+			]
 		}
 	]
 }

@@ -2,7 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useState } from "react";
 import styles from "./dashboard.module.css";
-import { getDisplayImageUrl } from "./image-url";
+import { ListingCard } from "@/app/shared/ListingCard";
 import { canManageListing, deleteListing, getListings, Listing, updateListing } from "./listings.data";
 
 type StatusFilter = "all" | "active" | "sold";
@@ -197,6 +197,9 @@ export const Dashboard = () => {
         <div className={styles.emptyState}>
           <h2>No listings yet</h2>
           <p>Create a listing from the Sell page and it will appear here.</p>
+          <a href="/sell" className={styles.emptyAction}>
+            Add your first listing
+          </a>
         </div>
       ) : filteredItems.length === 0 ? (
         <div className={styles.emptyState}>
@@ -206,39 +209,19 @@ export const Dashboard = () => {
       ) : (
         <div className={styles.grid}>
           {filteredItems.map((item) => {
-            const imageUrl = getDisplayImageUrl(item.image);
             const isSaving = savingIds.has(item.id);
             const isDeleting = deletingIds.has(item.id);
             const canManage = canManageListing(item);
 
             return (
-              <article key={item.id} className={styles.card}>
-                <div className={styles.imageFrame}>
-                  {imageUrl ? (
-                    <img src={imageUrl} alt={item.title} className={styles.cardImage} loading="lazy" />
-                  ) : (
-                    <div className={styles.imagePlaceholder}>
-                      <span>Image</span>
-                    </div>
-                  )}
-                </div>
-
-                <div className={styles.cardHeader}>
-                  <div>
-                    <h2>{item.title}</h2>
-                    <p className={styles.cardMeta}>{item.location} - {item.condition}</p>
-                  </div>
-                  <span className={item.sold ? styles.soldBadge : styles.activeBadge}>
-                    {item.sold ? "Sold" : "Active"}
-                  </span>
-                </div>
-
-                <div className={styles.cardBody}>
-                  <p className={styles.description}>{item.description}</p>
-                </div>
-
-                <div className={styles.cardFooter}>
-                  <span className={styles.price}>{item.price}</span>
+              <ListingCard
+                key={item.id}
+                listing={item}
+                href={`/listings/${item.id}`}
+                variant="seller"
+                statusLabel={item.sold ? "Sold" : "Active"}
+                statusTone={item.sold ? "sold" : "active"}
+                footerActions={
                   <div className={styles.actions}>
                     <a href={`/listings/${item.id}`} className={styles.button}>
                       View
@@ -267,8 +250,8 @@ export const Dashboard = () => {
                       {isDeleting ? "Deleting..." : "Delete"}
                     </button>
                   </div>
-                </div>
-              </article>
+                }
+              />
             );
           })}
         </div>

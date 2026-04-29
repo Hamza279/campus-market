@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import styles from "./sell.module.css";
-import { getDisplayImageUrl } from "./image-url";
-import { addListing } from "./listings.data";
+import { getImageUrlValidationError, getListingImageSrc, normalizeImageUrlForSave } from "./image-url";
+import { createListing } from "./sell.functions";
 
 interface SellForm {
   title: string;
@@ -36,7 +36,8 @@ export const Sell = () => {
   const [fieldErrors, setFieldErrors] = useState<SellFormErrors>({});
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [createdListingId, setCreatedListingId] = useState<string | null>(null);
-  const previewImageUrl = getDisplayImageUrl(form.image);
+  const normalizedImageUrl = normalizeImageUrlForSave(form.image);
+  const previewImageUrl = getListingImageSrc(form.image);
   const descriptionCount = form.description.length;
 
   const validateForm = (): SellFormErrors => {
@@ -71,8 +72,9 @@ export const Sell = () => {
       errors.description = `Description must be ${DESCRIPTION_LIMIT} characters or fewer.`;
     }
 
-    if (form.image.trim() && !previewImageUrl) {
-      errors.image = "Enter a valid http or https image URL.";
+    const imageError = getImageUrlValidationError(form.image);
+    if (imageError) {
+      errors.image = imageError;
     }
 
     return errors;
@@ -119,14 +121,14 @@ export const Sell = () => {
     setCreatedListingId(null);
 
     try {
-      const newListing = await addListing({
+      const newListing = await createListing({
         title: form.title.trim(),
         price: `$${Number.parseFloat(form.price).toFixed(2)}`,
         location: form.location.trim(),
         condition: form.condition,
         category: form.category,
         description: form.description.trim(),
-        image: previewImageUrl,
+        image: normalizedImageUrl,
       });
 
       setSuccessMessage("Listing created successfully.");
@@ -278,11 +280,7 @@ export const Sell = () => {
           />
           {fieldErrors.image ? <p className={styles.fieldError}>{fieldErrors.image}</p> : null}
           <div className={styles.imagePlaceholder}>
-            {previewImageUrl ? (
-              <img src={previewImageUrl} alt="Listing preview" className={styles.imagePreview} />
-            ) : (
-              <span>Image preview</span>
-            )}
+            <img src={previewImageUrl} alt="Listing preview" className={styles.imagePreview} />
           </div>
         </div>
 
