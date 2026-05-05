@@ -39,6 +39,7 @@ export const createListing = async (listing: ListingPayload): Promise<Listing> =
     headers: {
       "Content-Type": "application/json",
       Accept: "application/json",
+      Cookie: requestInfo.request.headers.get("Cookie") ?? "",
     },
     body: JSON.stringify(listing),
   });

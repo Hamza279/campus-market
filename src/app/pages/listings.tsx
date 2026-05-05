@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useSyncedState } from "rwsdk/use-synced-state/client";
+import { initSyncedStateClient, useSyncedState } from "rwsdk/use-synced-state/client";
 import styles from "./listings.module.css";
 import { ListingCard } from "@/app/shared/ListingCard";
 import { getListings, Listing } from "./listings.data";
@@ -10,6 +10,27 @@ import { LISTINGS_REALTIME_ROOM, NEW_LISTING_EVENT_KEY, type NewListingEvent } f
 type SortOption = "newest" | "price-asc" | "price-desc";
 const PAGE_SIZE = 6;
 const SAVED_STORAGE_KEY = "campus-market-saved-listings";
+const MAX_PROCESSED_EVENT_IDS = 100;
+
+const dedupeAndSortListings = (listings: Listing[]): Listing[] => {
+  const uniqueListings = new Map<string, Listing>();
+
+  for (const listing of listings) {
+    const existing = uniqueListings.get(listing.id);
+    if (!existing || getListingTime(listing) >= getListingTime(existing)) {
+      uniqueListings.set(listing.id, listing);
+    }
+  }
+
+  return Array.from(uniqueListings.values()).sort((a, b) => {
+    const timeDifference = getListingTime(b) - getListingTime(a);
+    if (timeDifference !== 0) {
+      return timeDifference;
+    }
+
+    return b.id.localeCompare(a.id);
+  });
+};
 
 const parsePrice = (price: string): number => {
   const parsed = Number.parseFloat(price.replace(/[^0-9.]/g, ""));
@@ -65,8 +86,9 @@ export const Listings = () => {
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [savedIds, setSavedIds] = useState<Set<string>>(() => new Set());
   const [highlightedIds, setHighlightedIds] = useState<Set<string>>(() => new Set());
+  const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
   const [listingEvent] = useSyncedState<NewListingEvent | null>(null, NEW_LISTING_EVENT_KEY, LISTINGS_REALTIME_ROOM);
-  const handledEventIdRef = useRef<string | null>(null);
+  const processedEventIdsRef = useRef<string[]>([]);
   const mountedAtRef = useRef(Date.now());
   const toastTimeoutRef = useRef<number | null>(null);
   const highlightTimeoutsRef = useRef<Map<string, number>>(new Map());
@@ -74,7 +96,7 @@ export const Listings = () => {
   const loadListings = useCallback(async () => {
     try {
       const listings = await getListings();
-      setItems(listings);
+      setItems(dedupeAndSortListings(listings));
       setError(null);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load listings.");
@@ -164,6 +186,41 @@ export const Listings = () => {
   }, [loadListings]);
 
   useEffect(() => {
+    let disposed = false;
+
+    const verifyRealtimeConnection = async () => {
+      try {
+        const client = initSyncedStateClient({
+          endpoint: `/__synced-state/${LISTINGS_REALTIME_ROOM}`,
+        });
+
+        if (!client) {
+          if (!disposed) {
+            setIsRealtimeConnected(false);
+          }
+          return;
+        }
+
+        await client.getState(NEW_LISTING_EVENT_KEY);
+        if (!disposed) {
+          setIsRealtimeConnected(true);
+        }
+      } catch (error) {
+        console.warn("[realtime:listings] connection check failed", error);
+        if (!disposed) {
+          setIsRealtimeConnected(false);
+        }
+      }
+    };
+
+    void verifyRealtimeConnection();
+
+    return () => {
+      disposed = true;
+    };
+  }, []);
+
+  useEffect(() => {
     return () => {
       if (toastTimeoutRef.current !== null) {
         window.clearTimeout(toastTimeoutRef.current);
@@ -181,20 +238,26 @@ export const Listings = () => {
       return;
     }
 
-    if (handledEventIdRef.current === listingEvent.eventId) {
+    console.info("[realtime:listings] received event", listingEvent);
+
+    if (processedEventIdsRef.current.includes(listingEvent.eventId)) {
       return;
     }
 
     const eventTime = Date.parse(listingEvent.occurredAt);
     const isFreshEvent = Number.isFinite(eventTime) && eventTime >= mountedAtRef.current - 1500;
-    const isFirstObservedEvent = handledEventIdRef.current === null;
+    const isFirstObservedEvent = processedEventIdsRef.current.length === 0;
 
-    handledEventIdRef.current = listingEvent.eventId;
+    processedEventIdsRef.current.push(listingEvent.eventId);
+    if (processedEventIdsRef.current.length > MAX_PROCESSED_EVENT_IDS) {
+      processedEventIdsRef.current.shift();
+    }
 
     if (isFirstObservedEvent && !isFreshEvent) {
       return;
     }
 
+    setIsRealtimeConnected(true);
     showNewListingToast();
     highlightListing(listingEvent.listingId);
     void loadListings();
@@ -300,9 +363,18 @@ export const Listings = () => {
           <h1>Campus Listings</h1>
           <p className={styles.subtitle}>Browse student-ready items nearby.</p>
         </div>
-        <a href="/sell" className={styles.actionButton}>
-          Sell an Item
-        </a>
+        <div className={styles.headerActions}>
+          <span
+            className={isRealtimeConnected ? styles.connectionBadgeConnected : styles.connectionBadgePending}
+            role="status"
+            aria-live="polite"
+          >
+            {isRealtimeConnected ? "Connected to realtime" : "Connecting to realtime..."}
+          </span>
+          <a href="/sell" className={styles.actionButton}>
+            Sell an Item
+          </a>
+        </div>
       </header>
 
       {toastMessage ? (

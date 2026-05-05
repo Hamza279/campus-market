@@ -1,10 +1,12 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
+import type { AuthUser } from "@/auth/types";
 import styles from "./AppShell.module.css";
 
 interface AppShellProps {
   children: React.ReactNode;
+  currentUser?: Pick<AuthUser, "email" | "name" | "avatarUrl"> | null;
 }
 
 interface NavItem {
@@ -46,42 +48,21 @@ const navItems: NavItem[] = [
   },
 ];
 
-export const AppShell = ({ children }: AppShellProps) => {
+export const AppShell = ({ children, currentUser = null }: AppShellProps) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [pathname, setPathname] = useState("/");
-  const [isLoggedIn, setIsLoggedIn] = useState(false);
 
   useEffect(() => {
     setPathname(window.location.pathname);
-
-    try {
-      setIsLoggedIn(window.localStorage.getItem("campus-market-auth-placeholder") === "true");
-    } catch {
-      setIsLoggedIn(false);
-    }
   }, []);
-
-  const authLabel = useMemo(() => (isLoggedIn ? "Logout" : "Login"), [isLoggedIn]);
 
   const closeMenu = () => {
     setMenuOpen(false);
   };
 
-  const handleAuthClick = () => {
-    // TODO: Replace this local placeholder with the real auth provider once auth is wired.
-    setIsLoggedIn((current) => {
-      const next = !current;
-      try {
-        window.localStorage.setItem("campus-market-auth-placeholder", String(next));
-      } catch {
-        // Local storage is only used for this temporary menu placeholder.
-      }
-      return next;
-    });
-    closeMenu();
-  };
-
   const renderNavLinks = (variant: "desktop" | "mobile") => {
+    const userLabel = currentUser?.name || currentUser?.email;
+
     return (
       <>
         {navItems.map((item) => {
@@ -99,13 +80,27 @@ export const AppShell = ({ children }: AppShellProps) => {
             </a>
           );
         })}
-        <button
-          type="button"
-          className={variant === "desktop" ? styles.authButton : `${styles.authButton} ${styles.mobileAuthButton}`}
-          onClick={handleAuthClick}
-        >
-          {authLabel}
-        </button>
+        {currentUser ? (
+          <div className={variant === "desktop" ? styles.userMenu : `${styles.userMenu} ${styles.mobileUserMenu}`}>
+            {currentUser.avatarUrl ? (
+              <img className={styles.avatar} src={currentUser.avatarUrl} alt="" referrerPolicy="no-referrer" />
+            ) : (
+              <span className={styles.avatarFallback}>{(userLabel ?? "U").slice(0, 1).toUpperCase()}</span>
+            )}
+            <span className={styles.userLabel}>{userLabel}</span>
+            <a className={styles.authButton} href="/logout" onClick={closeMenu}>
+              Logout
+            </a>
+          </div>
+        ) : (
+          <a
+            className={variant === "desktop" ? styles.authButton : `${styles.authButton} ${styles.mobileAuthButton}`}
+            href="/login"
+            onClick={closeMenu}
+          >
+            Login
+          </a>
+        )}
       </>
     );
   };

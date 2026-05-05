@@ -32,6 +32,39 @@
   margin-bottom: 2rem;
 }
 
+.headerActions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: flex-end;
+  gap: 0.75rem;
+}
+
+.connectionBadgeConnected,
+.connectionBadgePending {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.6rem;
+  padding: 0.7rem 0.9rem;
+  border-radius: 999px;
+  font-size: 0.82rem;
+  font-weight: 850;
+  white-space: nowrap;
+}
+
+.connectionBadgeConnected {
+  border: 1px solid rgba(16, 185, 129, 0.28);
+  background: #ecfdf5;
+  color: #047857;
+}
+
+.connectionBadgePending {
+  border: 1px solid rgba(245, 158, 11, 0.24);
+  background: #fffbeb;
+  color: #b45309;
+}
+
 .actionButton {
   display: inline-flex;
   align-items: center;
@@ -279,6 +312,10 @@
 
   .grid {
     gap: 1rem;
+  }
+
+  .headerActions {
+    justify-content: flex-start;
   }
 
   .searchRow,

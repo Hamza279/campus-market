@@ -91,6 +91,44 @@
   color: #1d4ed8;
 }
 
+.userMenu {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-width: 0;
+}
+
+.avatar,
+.avatarFallback {
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  border-radius: 999px;
+}
+
+.avatar {
+  object-fit: cover;
+}
+
+.avatarFallback {
+  display: grid;
+  place-items: center;
+  background: #dbeafe;
+  color: #1d4ed8;
+  font-size: 0.82rem;
+  font-weight: 900;
+}
+
+.userLabel {
+  max-width: 11rem;
+  overflow: hidden;
+  color: #334155;
+  font-size: 0.88rem;
+  font-weight: 850;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
 .menuButton {
   display: none;
   width: 2.75rem;
@@ -153,5 +191,23 @@
     width: 100%;
     min-height: 2.85rem;
     padding: 0.75rem 0.9rem;
+  }
+
+  .mobileUserMenu {
+    display: grid;
+    grid-template-columns: 2rem minmax(0, 1fr);
+    gap: 0.65rem;
+    padding: 0.75rem 0.9rem;
+  }
+
+  .mobileUserMenu .authButton {
+    grid-column: 1 / -1;
+    justify-content: flex-start;
+    width: 100%;
+  }
+
+  .mobileUserMenu .userLabel {
+    max-width: none;
+    align-self: center;
   }
 }

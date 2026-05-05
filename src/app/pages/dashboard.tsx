@@ -32,7 +32,7 @@ export const Dashboard = () => {
 
   const loadListings = useCallback(async () => {
     try {
-      const listings = await getListings();
+      const listings = await getListings({ mine: true });
       setItems(listings);
       setError(null);
     } catch (loadError) {

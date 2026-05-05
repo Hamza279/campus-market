@@ -1,11 +1,12 @@
 import { render, route } from "rwsdk/router";
 import { SyncedStateServer, syncedStateRoutes } from "rwsdk/use-synced-state/worker";
-import { defineApp } from "rwsdk/worker";
+import { defineApp, ErrorResponse } from "rwsdk/worker";
 
   import { Document } from "@/app/document";
   import { setCommonHeaders } from "@/app/headers";
   import { AppShell } from "@/app/shared/AppShell";
   import { Home } from "@/app/pages/home";
+  import { Login } from "@/app/pages/login";
   import { Listings } from "@/app/pages/listings";
   import { Sell } from "@/app/pages/sell";
   import { Dashboard } from "@/app/pages/dashboard";
@@ -14,11 +15,20 @@ import { defineApp } from "rwsdk/worker";
   import { SellerProfile } from "@/app/pages/seller";
   import { Messages } from "@/app/pages/messages";
   import { SavedItems } from "@/app/pages/saved";
+  import { RealtimeDebug } from "@/app/pages/realtime-debug";
 import { getImageUrlValidationError, normalizeImageUrlForSave } from "@/app/pages/image-url";
 import { LISTINGS_REALTIME_ROOM, NEW_LISTING_EVENT_KEY, type NewListingEvent } from "@/app/pages/listings.realtime";
 import type { Listing } from "@/app/pages/listings.data";
+import { buildGoogleAuthUrl, exchangeGoogleCode, upsertGoogleUser } from "@/auth/google";
+import type { AppContext, AuthUser } from "@/auth/types";
+import { sessions, setupSessionStore } from "@/session/store";
+import { SessionDurableObject as SessionDurableObjectImpl } from "@/session/durableObject";
 
 export { SyncedStateServer };
+export type { AppContext };
+
+// Export a concrete class from the main worker module so Miniflare can wrap it reliably in local dev.
+export class SessionDurableObject extends SessionDurableObjectImpl {}
 
   type ListingRow = {
     id: string;
@@ -63,22 +73,28 @@ export { SyncedStateServer };
     sellerName: string;
   };
 
+  type DebugListingPayload = {
+    title?: string;
+    price?: number | string;
+    description?: string;
+  };
+
 let schemaReady: Promise<void> | null = null;
 const DEFAULT_USER_ID = "campus-user";
 const DEFAULT_SELLER_NAME = "Campus User";
+let latestRealtimeDebugEvent: NewListingEvent | null = null;
 
-const getRequester = (request: Request) => {
-  const userId = request.headers.get("x-campus-user-id")?.trim() || DEFAULT_USER_ID;
-  const role = request.headers.get("x-campus-user-role")?.trim().toLowerCase() || "user";
+const getRequester = (user: AuthUser | null) => {
   return {
-    userId,
-    isAdmin: role === "admin",
+    userId: user?.id ?? "",
+    sellerName: user?.name || user?.email || DEFAULT_SELLER_NAME,
+    isAdmin: false,
   };
 };
 
-const canManageListing = (request: Request, listing: Listing) => {
-  const requester = getRequester(request);
-  return requester.isAdmin || listing.ownerId === requester.userId;
+const canManageListing = (user: AuthUser | null, listing: Listing) => {
+  const requester = getRequester(user);
+  return Boolean(requester.userId && (requester.isAdmin || listing.ownerId === requester.userId));
 };
 
 const ensureMarketplaceSchema = (db: D1Database) => {
@@ -87,6 +103,18 @@ const ensureMarketplaceSchema = (db: D1Database) => {
       "ALTER TABLE listings ADD COLUMN category TEXT NOT NULL DEFAULT 'Other'",
       "ALTER TABLE listings ADD COLUMN owner_id TEXT NOT NULL DEFAULT 'campus-admin'",
       "ALTER TABLE listings ADD COLUMN seller_name TEXT NOT NULL DEFAULT 'Campus User'",
+      `CREATE TABLE IF NOT EXISTS users (
+        id TEXT PRIMARY KEY,
+        provider TEXT NOT NULL,
+        provider_id TEXT NOT NULL,
+        email TEXT NOT NULL,
+        name TEXT,
+        avatar_url TEXT,
+        created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
+        updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
+      )`,
+      "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_provider_identity ON users(provider, provider_id)",
+      "CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)",
     ];
 
     for (const statement of statements) {
@@ -242,6 +270,33 @@ const validateInsertParams = (values: unknown[]): string | null => {
   return null;
 };
 
+const isDebugListingPayload = (value: unknown): value is DebugListingPayload => {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+};
+
+const normalizeDebugListingPayload = (payload: DebugListingPayload): ListingPayload => {
+  const rawPrice =
+    typeof payload.price === "number"
+      ? payload.price
+      : typeof payload.price === "string"
+        ? Number.parseFloat(payload.price)
+        : 10;
+  const normalizedPrice = Number.isFinite(rawPrice) ? rawPrice : 10;
+
+  return {
+    title: typeof payload.title === "string" && payload.title.trim() ? payload.title.trim() : "Test item",
+    price: `$${normalizedPrice.toFixed(2)}`,
+    location: "Realtime Lab",
+    condition: "New",
+    category: "Supplies",
+    description:
+      typeof payload.description === "string" && payload.description.trim()
+        ? payload.description.trim()
+        : "Realtime test",
+    image: "",
+  };
+};
+
 const getListingById = async (db: D1Database, id: string): Promise<Listing | null> => {
   await ensureMarketplaceSchema(db);
 
@@ -273,6 +328,132 @@ const getListingById = async (db: D1Database, id: string): Promise<Listing | nul
   return row ? toListing(row) : null;
 };
 
+const createListingRecord = async ({
+  db,
+  request,
+  payload,
+  ownerId,
+  sellerName,
+}: {
+  db: D1Database;
+  request: Request;
+  payload: ListingPayload;
+  ownerId: string;
+  sellerName: string;
+}): Promise<{ listing?: Listing; error?: string; status?: number }> => {
+  const insertSql = `
+    INSERT INTO listings (
+      id,
+      title,
+      price,
+      location,
+      item_condition,
+      category,
+      description,
+      image,
+      sold,
+      is_seeded,
+      owner_id,
+      seller_name
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+  `;
+
+  const payloadError = validateListingPayload(payload);
+  if (payloadError) {
+    return { error: payloadError, status: 400 };
+  }
+
+  const listing = normalizeListingPayload(payload);
+  const id = crypto.randomUUID();
+  const insertParams = [
+    id,
+    listing.title,
+    listing.price,
+    listing.location,
+    listing.condition,
+    listing.category,
+    listing.description,
+    listing.image,
+    listing.sold,
+    listing.isSeeded,
+    ownerId,
+    sellerName,
+  ] as const;
+
+  const insertParamError = validateInsertParams([...insertParams]);
+  if (insertParamError) {
+    logListingCreateDebug("Invalid listing create insert values.", {
+      request,
+      rawBodyText: JSON.stringify(payload),
+      parsedPayload: payload,
+      sql: insertSql,
+      boundValues: [...insertParams],
+    });
+    return { error: insertParamError, status: 400 };
+  }
+
+  try {
+    await db.prepare(insertSql).bind(...insertParams).run();
+  } catch (error) {
+    logListingCreateDebug("D1 listing create insert failed.", {
+      request,
+      rawBodyText: JSON.stringify(payload),
+      parsedPayload: payload,
+      sql: insertSql,
+      boundValues: [...insertParams],
+      error,
+    });
+    return { error: "Failed to create listing.", status: 500 };
+  }
+
+  const created = await getListingById(db, id);
+  if (!created) {
+    return { error: "Created listing could not be reloaded.", status: 500 };
+  }
+
+  return { listing: created };
+};
+
+const getUserById = async (db: D1Database, id: string): Promise<AuthUser | null> => {
+  await ensureMarketplaceSchema(db);
+
+  return await db
+    .prepare(
+      `
+        SELECT
+          id,
+          provider,
+          provider_id AS providerId,
+          email,
+          name,
+          avatar_url AS avatarUrl,
+          created_at AS createdAt,
+          updated_at AS updatedAt
+        FROM users
+        WHERE id = ?
+      `,
+    )
+    .bind(id)
+    .first<AuthUser>();
+};
+
+const redirect = (location: string, headers = new Headers()) => {
+  headers.set("Location", location);
+  return new Response(null, { status: 302, headers });
+};
+
+const loginRedirect = (request: Request) => {
+  const url = new URL(request.url);
+  const returnTo = encodeURIComponent(`${url.pathname}${url.search}`);
+  return redirect(`/login?returnTo=${returnTo}`);
+};
+
+const requireUser = ({ ctx, request }: { ctx: AppContext; request: Request }) => {
+  if (!ctx.user) {
+    return loginRedirect(request);
+  }
+};
+
 const publishNewListingEvent = async (env: Env, listing: Listing) => {
   const roomId = env.SYNCED_STATE_SERVER.idFromName(LISTINGS_REALTIME_ROOM);
   const room = env.SYNCED_STATE_SERVER.get(roomId);
@@ -283,25 +464,118 @@ const publishNewListingEvent = async (env: Env, listing: Listing) => {
     occurredAt: new Date().toISOString(),
   };
 
+  latestRealtimeDebugEvent = event;
   await room.setState(event, NEW_LISTING_EVENT_KEY);
 };
 
-const withAppShell = (children: React.ReactNode) => {
-  return <AppShell>{children}</AppShell>;
+const withAppShell = (children: React.ReactNode, currentUser: AuthUser | null = null) => {
+  return <AppShell currentUser={currentUser}>{children}</AppShell>;
 };
 
 const createApp = (env: Env) => {
   return defineApp([
     setCommonHeaders(),
+    async ({ ctx, request, response }) => {
+      await ensureMarketplaceSchema(env.campusmarket_db);
+      setupSessionStore(env);
+
+      try {
+        ctx.session = await sessions.load(request);
+      } catch (error) {
+        if (error instanceof ErrorResponse && error.code === 401) {
+          await sessions.remove(request, response.headers);
+          ctx.session = null;
+          ctx.user = null;
+          return;
+        }
+
+        throw error;
+      }
+
+      ctx.user = ctx.session?.userId ? await getUserById(env.campusmarket_db, ctx.session.userId) : null;
+    },
     ...syncedStateRoutes(() => env.SYNCED_STATE_SERVER),
     render(Document, [
-        route("/api/listings", {
-          get: async () => {
-            await ensureMarketplaceSchema(env.campusmarket_db);
+        route("/login", ({ request, ctx }: { request: Request; ctx: AppContext }) => {
+          if (ctx.user) {
+            return redirect("/");
+          }
 
-            const result = await env.campusmarket_db
-              .prepare(
-                `
+          const url = new URL(request.url);
+          const returnTo = url.searchParams.get("returnTo") ?? "/";
+          return withAppShell(
+            <Login
+              googleEnabled={Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET)}
+              appleEnabled={false}
+              error={url.searchParams.get("error") ?? undefined}
+              returnTo={returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/"}
+            />,
+            ctx.user,
+          );
+        }),
+
+        route("/auth/google", async ({ request, response }) => {
+          if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) {
+            return redirect("/login?error=Google%20login%20needs%20configuration.", response.headers);
+          }
+
+          const url = new URL(request.url);
+          const returnTo = url.searchParams.get("returnTo") || "/";
+          const safeReturnTo = returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/";
+          const state = crypto.randomUUID();
+
+          // Google OAuth starts here: store the CSRF state in the signed session cookie, then redirect to Google.
+          await sessions.save(response.headers, { oauthState: state, returnTo: safeReturnTo });
+          return redirect(buildGoogleAuthUrl(request, env, state), response.headers);
+        }),
+
+        route("/auth/callback/google", async ({ request, response }) => {
+          const url = new URL(request.url);
+          const code = url.searchParams.get("code");
+          const state = url.searchParams.get("state");
+          const error = url.searchParams.get("error");
+
+          if (error) {
+            return redirect(`/login?error=${encodeURIComponent(error)}`, response.headers);
+          }
+
+          const session = await sessions.load(request);
+          if (!code || !state || !session?.oauthState || state !== session.oauthState) {
+            return redirect("/login?error=Invalid%20Google%20login%20response.", response.headers);
+          }
+
+          try {
+            // Google OAuth callback is handled here: exchange the code, read the Google profile, and upsert the user.
+            const profile = await exchangeGoogleCode(request, env, code);
+            const user = await upsertGoogleUser(env.campusmarket_db, profile);
+            const returnTo = session.returnTo && session.returnTo.startsWith("/") ? session.returnTo : "/";
+
+            // The authenticated session is created here after Google has verified the user.
+            await sessions.save(response.headers, { userId: user.id, oauthState: null, returnTo: null }, { maxAge: true });
+            return redirect(returnTo, response.headers);
+          } catch (callbackError) {
+            console.error("Google OAuth callback failed", callbackError);
+            return redirect("/login?error=Google%20login%20failed.", response.headers);
+          }
+        }),
+
+        route("/logout", async ({ request, response }) => {
+          // Logout clears the server-side durable session and expires the signed session cookie.
+          await sessions.remove(request, response.headers);
+          return redirect("/", response.headers);
+        }),
+
+        route("/api/listings", {
+          get: async ({ request, ctx }: { request: Request; ctx: AppContext }) => {
+            await ensureMarketplaceSchema(env.campusmarket_db);
+            const url = new URL(request.url);
+            const mineOnly = url.searchParams.get("mine") === "1";
+
+            if (mineOnly && !ctx.user) {
+              return json({ error: "Login required." }, { status: 401 });
+            }
+
+            const listingSql = `
                   SELECT
                     id,
                     title,
@@ -318,131 +592,103 @@ const createApp = (env: Env) => {
                     created_at,
                     updated_at
                   FROM listings
-                  ORDER BY is_seeded DESC, created_at DESC, id DESC
-                `,
-              )
-              .all<ListingRow>();
+                  ${mineOnly ? "WHERE owner_id = ?" : ""}
+                  ORDER BY created_at DESC, id DESC
+                `;
+            const prepared = env.campusmarket_db.prepare(listingSql);
+            const result = mineOnly
+              ? await prepared.bind(ctx.user!.id).all<ListingRow>()
+              : await prepared.all<ListingRow>();
 
             return json((result.results ?? []).map(toListing));
           },
 
-          post: async ({ request }) => {
-            await ensureMarketplaceSchema(env.campusmarket_db);
-
-            const contentType = request.headers.get("content-type") ?? "";
-            const insertSql = `
-                  INSERT INTO listings (
-                    id,
-                    title,
-                    price,
-                    location,
-                    item_condition,
-                    category,
-                    description,
-                    image,
-                    sold,
-                    is_seeded,
-                    owner_id,
-                    seller_name
-                  ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
-                `;
-            let rawBodyText = "";
-            let payload: unknown = null;
-
-            if (!contentType.toLowerCase().includes("application/json")) {
-              return json({ error: "Content-Type must be application/json." }, { status: 400 });
-            }
-
+          post: async ({ request, ctx }: { request: Request; ctx: AppContext }) => {
             try {
-              rawBodyText = await request.text();
+              await ensureMarketplaceSchema(env.campusmarket_db);
+
+              if (!ctx.user) {
+                return json({ error: "Login required to create a listing." }, { status: 401 });
+              }
+
+              const contentType = request.headers.get("content-type") ?? "";
+              let rawBodyText = "";
+              let payload: unknown = null;
+
+              if (!contentType.toLowerCase().includes("application/json")) {
+                return json({ error: "Content-Type must be application/json." }, { status: 400 });
+              }
+
+              try {
+                rawBodyText = await request.text();
+              } catch (error) {
+                logListingCreateDebug("Failed to read listing create request body.", {
+                  request,
+                  rawBodyText,
+                  parsedPayload: payload,
+                  sql: "READ_BODY",
+                  boundValues: [],
+                  error,
+                });
+                return json({ error: "Invalid request body." }, { status: 400 });
+              }
+
+              if (rawBodyText.trim().length === 0) {
+                return json({ error: "JSON body is required." }, { status: 400 });
+              }
+
+              try {
+                payload = JSON.parse(rawBodyText);
+              } catch (error) {
+                logListingCreateDebug("Invalid listing create JSON body.", {
+                  request,
+                  rawBodyText,
+                  parsedPayload: payload,
+                  sql: "PARSE_JSON",
+                  boundValues: [],
+                  error,
+                });
+                return json({ error: "Invalid JSON body." }, { status: 400 });
+              }
+
+              if (!isListingPayload(payload)) {
+                return json({ error: "JSON body must be an object." }, { status: 400 });
+              }
+
+              const requester = getRequester(ctx.user);
+              const createdResult = await createListingRecord({
+                db: env.campusmarket_db,
+                request,
+                payload,
+                ownerId: requester.userId,
+                sellerName: requester.sellerName,
+              });
+
+              if (!createdResult.listing) {
+                return json({ error: createdResult.error ?? "Failed to create listing." }, { status: createdResult.status ?? 500 });
+              }
+
+              try {
+                await publishNewListingEvent(env, createdResult.listing);
+              } catch (error) {
+                console.error("[worker] publishNewListingEvent failed for /api/listings", {
+                  error,
+                  listingId: createdResult.listing.id,
+                });
+                return json({ error: error instanceof Error ? error.message : "Failed to publish realtime event." }, { status: 500 });
+              }
+
+              return new Response(JSON.stringify(createdResult.listing), {
+                status: 201,
+                headers: { "Content-Type": "application/json" },
+              });
             } catch (error) {
-              logListingCreateDebug("Failed to read listing create request body.", {
-                request,
-                rawBodyText,
-                parsedPayload: payload,
-                sql: insertSql,
-                boundValues: [],
-                error,
+              console.error("[worker] /api/listings POST crashed", error);
+              return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown server error" }), {
+                status: 500,
+                headers: { "Content-Type": "application/json" },
               });
-              return json({ error: "Invalid request body." }, { status: 400 });
             }
-
-            if (rawBodyText.trim().length === 0) {
-              return json({ error: "JSON body is required." }, { status: 400 });
-            }
-
-            try {
-              payload = JSON.parse(rawBodyText);
-            } catch (error) {
-              logListingCreateDebug("Invalid listing create JSON body.", {
-                request,
-                rawBodyText,
-                parsedPayload: payload,
-                sql: insertSql,
-                boundValues: [],
-                error,
-              });
-              return json({ error: "Invalid JSON body." }, { status: 400 });
-            }
-
-            if (!isListingPayload(payload)) {
-              return json({ error: "JSON body must be an object." }, { status: 400 });
-            }
-
-            const payloadError = validateListingPayload(payload);
-            if (payloadError) {
-              return json({ error: payloadError }, { status: 400 });
-            }
-
-            const listing = normalizeListingPayload(payload);
-            const requester = getRequester(request);
-            const id = crypto.randomUUID();
-            const insertParams = [
-              id,
-              listing.title,
-              listing.price,
-              listing.location,
-              listing.condition,
-              listing.category,
-              listing.description,
-              listing.image,
-              listing.sold,
-              listing.isSeeded,
-              requester.userId,
-              DEFAULT_SELLER_NAME,
-            ] as const;
-            const insertParamError = validateInsertParams([...insertParams]);
-            if (insertParamError) {
-              logListingCreateDebug("Invalid listing create insert values.", {
-                request,
-                rawBodyText,
-                parsedPayload: payload,
-                sql: insertSql,
-                boundValues: [...insertParams],
-              });
-              return json({ error: insertParamError }, { status: 400 });
-            }
-
-            try {
-              await env.campusmarket_db.prepare(insertSql).bind(...insertParams).run();
-            } catch (error) {
-              logListingCreateDebug("D1 listing create insert failed.", {
-                request,
-                rawBodyText,
-                parsedPayload: payload,
-                sql: insertSql,
-                boundValues: [...insertParams],
-                error,
-              });
-              return json({ error: "Failed to create listing." }, { status: 500 });
-            }
-
-            const created = await getListingById(env.campusmarket_db, id);
-            if (created) {
-              await publishNewListingEvent(env, created);
-            }
-
-            return json(created, { status: 201 });
           },
         }),
 
@@ -525,13 +771,13 @@ const createApp = (env: Env) => {
             return json(listing);
           },
 
-          put: async ({ params, request }) => {
+          put: async ({ params, request, ctx }: { params: { id: string }; request: Request; ctx: AppContext }) => {
             const existing = await getListingById(env.campusmarket_db, params.id);
             if (!existing) {
               return json({ error: "Listing not found." }, { status: 404 });
             }
 
-            if (!canManageListing(request, existing)) {
+            if (!canManageListing(ctx.user, existing)) {
               return json({ error: "You do not have permission to update this listing." }, { status: 403 });
             }
 
@@ -594,13 +840,13 @@ const createApp = (env: Env) => {
             return json(updated);
           },
 
-          delete: async ({ params, request }) => {
+          delete: async ({ params, ctx }: { params: { id: string }; ctx: AppContext }) => {
             const existing = await getListingById(env.campusmarket_db, params.id);
             if (!existing) {
               return json({ error: "Listing not found." }, { status: 404 });
             }
 
-            if (!canManageListing(request, existing)) {
+            if (!canManageListing(ctx.user, existing)) {
               return json({ error: "You do not have permission to delete this listing." }, { status: 403 });
             }
 
@@ -618,16 +864,127 @@ const createApp = (env: Env) => {
           },
         }),
 
-        route("/", () => withAppShell(<Home />)),
-        route("/listings", () => withAppShell(<Listings />)),
-        route("/sell", () => withAppShell(<Sell />)),
-        route("/dashboard", () => withAppShell(<Dashboard />)),
-        route("/messages", () => withAppShell(<Messages />)),
-        route("/saved", () => withAppShell(<SavedItems />)),
-        route("/edit/:id", ({ params }) => withAppShell(<Edit listingId={params.id} />)),
-        route("/listings/:id", ({ params }) => withAppShell(<ListingDetail listingId={params.id} />)),
-        route("/listing/:id", ({ params }) => withAppShell(<ListingDetail listingId={params.id} />)),
-        route("/seller/:id", ({ params }) => withAppShell(<SellerProfile sellerId={params.id} />)),
+        route("/api/dev/realtime-event", {
+          get: async ({ request }) => {
+            console.info("[worker] realtime debug event fetch", {
+              method: request.method,
+              url: request.url,
+              hasEvent: latestRealtimeDebugEvent !== null,
+            });
+
+            return json({ event: latestRealtimeDebugEvent });
+          },
+          post: async ({ request }) => {
+            try {
+              await ensureMarketplaceSchema(env.campusmarket_db);
+
+              const contentType = request.headers.get("content-type") ?? "";
+              if (!contentType.toLowerCase().includes("application/json")) {
+                return new Response(JSON.stringify({ error: "Content-Type must be application/json." }), {
+                  status: 400,
+                  headers: { "Content-Type": "application/json" },
+                });
+              }
+
+              const rawBodyText = await request.text();
+              let payload: unknown = null;
+
+              try {
+                payload = rawBodyText.trim() ? JSON.parse(rawBodyText) : {};
+              } catch (error) {
+                console.error("[worker] /api/dev/realtime-event invalid JSON", {
+                  error,
+                  rawBodyText,
+                });
+                return new Response(JSON.stringify({ error: "Invalid JSON body." }), {
+                  status: 400,
+                  headers: { "Content-Type": "application/json" },
+                });
+              }
+
+              if (!isDebugListingPayload(payload)) {
+                return new Response(JSON.stringify({ error: "JSON body must be an object." }), {
+                  status: 400,
+                  headers: { "Content-Type": "application/json" },
+                });
+              }
+
+              const normalizedPayload = normalizeDebugListingPayload(payload);
+              const createdResult = await createListingRecord({
+                db: env.campusmarket_db,
+                request,
+                payload: normalizedPayload,
+                ownerId: DEFAULT_USER_ID,
+                sellerName: DEFAULT_SELLER_NAME,
+              });
+
+              if (!createdResult.listing) {
+                return new Response(JSON.stringify({ error: createdResult.error ?? "Failed to create test listing." }), {
+                  status: createdResult.status ?? 500,
+                  headers: { "Content-Type": "application/json" },
+                });
+              }
+
+              try {
+                await publishNewListingEvent(env, createdResult.listing);
+              } catch (error) {
+                console.error("[worker] publishNewListingEvent failed for /api/dev/realtime-event", {
+                  error,
+                  listingId: createdResult.listing.id,
+                });
+                return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Failed to publish realtime event." }), {
+                  status: 500,
+                  headers: { "Content-Type": "application/json" },
+                });
+              }
+
+              return new Response(
+                JSON.stringify({
+                  success: true,
+                  listing: createdResult.listing,
+                  event: latestRealtimeDebugEvent,
+                }),
+                {
+                  status: 200,
+                  headers: { "Content-Type": "application/json" },
+                },
+              );
+            } catch (error) {
+              console.error("[worker] /api/dev/realtime-event POST crashed", error);
+              return new Response(JSON.stringify({ error: error instanceof Error ? error.message : "Unknown server error" }), {
+                status: 500,
+                headers: { "Content-Type": "application/json" },
+              });
+            }
+          },
+        }),
+
+        route("/", ({ ctx }: { ctx: AppContext }) => withAppShell(<Home />, ctx.user)),
+        route("/listings", ({ ctx }: { ctx: AppContext }) => withAppShell(<Listings />, ctx.user)),
+        route("/sell", [
+          requireUser,
+          ({ ctx }: { ctx: AppContext }) => withAppShell(<Sell />, ctx.user),
+        ]),
+        route("/dashboard", [
+          requireUser,
+          ({ ctx }: { ctx: AppContext }) => withAppShell(<Dashboard />, ctx.user),
+        ]),
+        route("/messages", ({ ctx }: { ctx: AppContext }) => withAppShell(<Messages />, ctx.user)),
+        route("/saved", ({ ctx }: { ctx: AppContext }) => withAppShell(<SavedItems />, ctx.user)),
+        route("/dev/realtime", ({ ctx }: { ctx: AppContext }) => withAppShell(<RealtimeDebug />, ctx.user)),
+        route("/edit/:id", [
+          requireUser,
+          ({ params, ctx }: { params: { id: string }; ctx: AppContext }) => withAppShell(<Edit listingId={params.id} />, ctx.user),
+        ]),
+        route("/listings/:id", ({ params, ctx }: { params: { id: string }; ctx: AppContext }) =>
+          withAppShell(<ListingDetail listingId={params.id} />, ctx.user),
+        ),
+        route("/listing/:id", ({ params, ctx }: { params: { id: string }; ctx: AppContext }) =>
+          withAppShell(<ListingDetail listingId={params.id} />, ctx.user),
+        ),
+        route("/seller/:id", ({ params, ctx }: { params: { id: string }; ctx: AppContext }) =>
+          withAppShell(<SellerProfile sellerId={params.id} />, ctx.user),
+        ),
     ]),
   ]);
 };
