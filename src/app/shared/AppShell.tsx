@@ -22,17 +22,17 @@ const navItems: NavItem[] = [
     match: (pathname) => pathname === "/",
   },
   {
-    label: "Listings",
+    label: "Browse",
     href: "/listings",
     match: (pathname) => pathname === "/listings" || pathname.startsWith("/listings/") || pathname.startsWith("/listing/"),
   },
   {
-    label: "Sell an Item",
+    label: "Sell",
     href: "/sell",
     match: (pathname) => pathname === "/sell",
   },
   {
-    label: "Seller Dashboard",
+    label: "Dashboard",
     href: "/dashboard",
     match: (pathname) => pathname === "/dashboard" || pathname.startsWith("/edit/"),
   },
@@ -62,6 +62,8 @@ export const AppShell = ({ children, currentUser = null }: AppShellProps) => {
 
   const renderNavLinks = (variant: "desktop" | "mobile") => {
     const userLabel = currentUser?.name || currentUser?.email;
+    const greetingName = currentUser?.name?.split(" ")[0] || currentUser?.email?.split("@")[0] || "there";
+    const greetingLabel = `Hi ${greetingName}`;
 
     return (
       <>
@@ -87,7 +89,7 @@ export const AppShell = ({ children, currentUser = null }: AppShellProps) => {
             ) : (
               <span className={styles.avatarFallback}>{(userLabel ?? "U").slice(0, 1).toUpperCase()}</span>
             )}
-            <span className={styles.userLabel}>{userLabel}</span>
+            <span className={styles.userLabel}>{greetingLabel}</span>
             <a className={styles.authButton} href="/logout" onClick={closeMenu}>
               Logout
             </a>

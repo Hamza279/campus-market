@@ -12,6 +12,7 @@
 	],
 	// Assets configuration
 	"assets": {
+		"directory": "./dist/client",
 		"binding": "ASSETS"
 	},
 	// Observability settings

@@ -20,6 +20,7 @@ import { getImageUrlValidationError, normalizeImageUrlForSave } from "@/app/page
 import { LISTINGS_REALTIME_ROOM, NEW_LISTING_EVENT_KEY, type NewListingEvent } from "@/app/pages/listings.realtime";
 import type { Listing } from "@/app/pages/listings.data";
 import { buildGoogleAuthUrl, exchangeGoogleCode, upsertGoogleUser } from "@/auth/google";
+import { upsertLocalUser, validateLocalLogin } from "@/auth/local";
 import type { AppContext, AuthUser } from "@/auth/types";
 import { sessions, setupSessionStore } from "@/session/store";
 import { SessionDurableObject as SessionDurableObjectImpl } from "@/session/durableObject";
@@ -442,6 +443,10 @@ const redirect = (location: string, headers = new Headers()) => {
   return new Response(null, { status: 302, headers });
 };
 
+const safeReturnTo = (returnTo: string | null | undefined) => {
+  return returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/";
+};
+
 const loginRedirect = (request: Request) => {
   const url = new URL(request.url);
   const returnTo = encodeURIComponent(`${url.pathname}${url.search}`);
@@ -496,22 +501,50 @@ const createApp = (env: Env) => {
     },
     ...syncedStateRoutes(() => env.SYNCED_STATE_SERVER),
     render(Document, [
-        route("/login", ({ request, ctx }: { request: Request; ctx: AppContext }) => {
-          if (ctx.user) {
-            return redirect("/");
-          }
+        route("/login", {
+          get: ({ request, ctx }: { request: Request; ctx: AppContext }) => {
+            const url = new URL(request.url);
+            const returnTo = safeReturnTo(url.searchParams.get("returnTo") ?? "/dashboard");
 
-          const url = new URL(request.url);
-          const returnTo = url.searchParams.get("returnTo") ?? "/";
-          return withAppShell(
-            <Login
-              googleEnabled={Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET)}
-              appleEnabled={false}
-              error={url.searchParams.get("error") ?? undefined}
-              returnTo={returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/"}
-            />,
-            ctx.user,
-          );
+            if (ctx.user) {
+              return redirect(returnTo === "/" ? "/dashboard" : returnTo);
+            }
+
+            return withAppShell(
+              <Login
+                googleEnabled={Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET)}
+                appleEnabled={false}
+                error={url.searchParams.get("error") ?? undefined}
+                success={url.searchParams.get("loggedOut") === "1" ? "Logged out." : (url.searchParams.get("success") ?? undefined)}
+                returnTo={returnTo}
+              />,
+              ctx.user,
+            );
+          },
+
+          post: async ({ request, response, ctx }: { request: Request; response: { headers: Headers }; ctx: AppContext }) => {
+            if (ctx.user) {
+              return redirect("/", response.headers);
+            }
+
+            const formData = await request.formData();
+            const returnTo = safeReturnTo(String(formData.get("returnTo") ?? "/dashboard"));
+            const localLogin = validateLocalLogin({
+              name: formData.get("name"),
+              email: formData.get("email"),
+            });
+
+            if ("error" in localLogin) {
+              return redirect(
+                `/login?error=${encodeURIComponent(localLogin.error)}&returnTo=${encodeURIComponent(returnTo)}`,
+                response.headers,
+              );
+            }
+
+            const user = await upsertLocalUser(env.campusmarket_db, localLogin);
+            await sessions.save(response.headers, { userId: user.id, oauthState: null, returnTo: null }, { maxAge: true });
+            return redirect(returnTo === "/" ? "/dashboard" : returnTo, response.headers);
+          },
         }),
 
         route("/auth/google", async ({ request, response }) => {
@@ -521,11 +554,11 @@ const createApp = (env: Env) => {
 
           const url = new URL(request.url);
           const returnTo = url.searchParams.get("returnTo") || "/";
-          const safeReturnTo = returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/";
+          const sanitizedReturnTo = safeReturnTo(returnTo);
           const state = crypto.randomUUID();
 
           // Google OAuth starts here: store the CSRF state in the signed session cookie, then redirect to Google.
-          await sessions.save(response.headers, { oauthState: state, returnTo: safeReturnTo });
+          await sessions.save(response.headers, { oauthState: state, returnTo: sanitizedReturnTo });
           return redirect(buildGoogleAuthUrl(request, env, state), response.headers);
         }),
 
@@ -548,7 +581,7 @@ const createApp = (env: Env) => {
             // Google OAuth callback is handled here: exchange the code, read the Google profile, and upsert the user.
             const profile = await exchangeGoogleCode(request, env, code);
             const user = await upsertGoogleUser(env.campusmarket_db, profile);
-            const returnTo = session.returnTo && session.returnTo.startsWith("/") ? session.returnTo : "/";
+            const returnTo = safeReturnTo(session.returnTo);
 
             // The authenticated session is created here after Google has verified the user.
             await sessions.save(response.headers, { userId: user.id, oauthState: null, returnTo: null }, { maxAge: true });
@@ -562,7 +595,7 @@ const createApp = (env: Env) => {
         route("/logout", async ({ request, response }) => {
           // Logout clears the server-side durable session and expires the signed session cookie.
           await sessions.remove(request, response.headers);
-          return redirect("/", response.headers);
+          return redirect("/login?loggedOut=1", response.headers);
         }),
 
         route("/api/listings", {
@@ -778,7 +811,10 @@ const createApp = (env: Env) => {
             }
 
             if (!canManageListing(ctx.user, existing)) {
-              return json({ error: "You do not have permission to update this listing." }, { status: 403 });
+              return json(
+                { error: ctx.user ? "You do not have permission to update this listing." : "Login required to update this listing." },
+                { status: ctx.user ? 403 : 401 },
+              );
             }
 
             let payload: unknown = null;
@@ -847,7 +883,10 @@ const createApp = (env: Env) => {
             }
 
             if (!canManageListing(ctx.user, existing)) {
-              return json({ error: "You do not have permission to delete this listing." }, { status: 403 });
+              return json(
+                { error: ctx.user ? "You do not have permission to delete this listing." : "Login required to delete this listing." },
+                { status: ctx.user ? 403 : 401 },
+              );
             }
 
             await env.campusmarket_db
