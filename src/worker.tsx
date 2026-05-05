@@ -20,7 +20,14 @@ import { getImageUrlValidationError, normalizeImageUrlForSave } from "@/app/page
 import { LISTINGS_REALTIME_ROOM, NEW_LISTING_EVENT_KEY, type NewListingEvent } from "@/app/pages/listings.realtime";
 import type { Listing } from "@/app/pages/listings.data";
 import { buildGoogleAuthUrl, exchangeGoogleCode, upsertGoogleUser } from "@/auth/google";
-import { upsertLocalUser, validateLocalLogin } from "@/auth/local";
+import {
+  authenticateLocalUser,
+  createLocalUser,
+  upsertDemoUser,
+  validateDemoLogin,
+  validatePasswordLoginInput,
+  validateSignupInput,
+} from "@/auth/local";
 import type { AppContext, AuthUser } from "@/auth/types";
 import { sessions, setupSessionStore } from "@/session/store";
 import { SessionDurableObject as SessionDurableObjectImpl } from "@/session/durableObject";
@@ -111,9 +118,11 @@ const ensureMarketplaceSchema = (db: D1Database) => {
         email TEXT NOT NULL,
         name TEXT,
         avatar_url TEXT,
+        password_hash TEXT,
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       )`,
+      "ALTER TABLE users ADD COLUMN password_hash TEXT",
       "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_provider_identity ON users(provider, provider_id)",
       "CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)",
     ];
@@ -447,6 +456,31 @@ const safeReturnTo = (returnTo: string | null | undefined) => {
   return returnTo && returnTo.startsWith("/") && !returnTo.startsWith("//") ? returnTo : "/";
 };
 
+const loginLocation = ({
+  error,
+  success,
+  returnTo,
+  mode = "login",
+}: {
+  error?: string;
+  success?: string;
+  returnTo: string;
+  mode?: "login" | "signup";
+}) => {
+  const params = new URLSearchParams();
+  params.set("returnTo", returnTo);
+  if (mode === "signup") {
+    params.set("mode", "signup");
+  }
+  if (error) {
+    params.set("error", error);
+  }
+  if (success) {
+    params.set("success", success);
+  }
+  return `/login?${params.toString()}`;
+};
+
 const loginRedirect = (request: Request) => {
   const url = new URL(request.url);
   const returnTo = encodeURIComponent(`${url.pathname}${url.search}`);
@@ -505,6 +539,9 @@ const createApp = (env: Env) => {
           get: ({ request, ctx }: { request: Request; ctx: AppContext }) => {
             const url = new URL(request.url);
             const returnTo = safeReturnTo(url.searchParams.get("returnTo") ?? "/dashboard");
+            const mode = url.searchParams.get("mode") === "signup" ? "signup" : "login";
+            const hostname = url.hostname.toLowerCase();
+            const demoEnabled = hostname === "localhost" || hostname === "127.0.0.1";
 
             if (ctx.user) {
               return redirect(returnTo === "/" ? "/dashboard" : returnTo);
@@ -517,6 +554,8 @@ const createApp = (env: Env) => {
                 error={url.searchParams.get("error") ?? undefined}
                 success={url.searchParams.get("loggedOut") === "1" ? "Logged out." : (url.searchParams.get("success") ?? undefined)}
                 returnTo={returnTo}
+                mode={mode}
+                demoEnabled={demoEnabled}
               />,
               ctx.user,
             );
@@ -529,19 +568,67 @@ const createApp = (env: Env) => {
 
             const formData = await request.formData();
             const returnTo = safeReturnTo(String(formData.get("returnTo") ?? "/dashboard"));
-            const localLogin = validateLocalLogin({
-              name: formData.get("name"),
+            const intent = String(formData.get("intent") ?? "login");
+
+            if (intent === "signup") {
+              const signupInput = validateSignupInput({
+                name: formData.get("name"),
+                email: formData.get("email"),
+                password: formData.get("password"),
+                passwordConfirm: formData.get("passwordConfirm"),
+              });
+
+              if ("error" in signupInput) {
+                return redirect(loginLocation({ error: signupInput.error, returnTo, mode: "signup" }), response.headers);
+              }
+
+              const createdUser = await createLocalUser(env.campusmarket_db, signupInput);
+              if ("error" in createdUser) {
+                return redirect(loginLocation({ error: createdUser.error, returnTo, mode: "signup" }), response.headers);
+              }
+
+              await sessions.save(response.headers, { userId: createdUser.id, oauthState: null, returnTo: null }, { maxAge: true });
+              return redirect("/dashboard", response.headers);
+            }
+
+            if (intent === "demo") {
+              const url = new URL(request.url);
+              const hostname = url.hostname.toLowerCase();
+              if (hostname !== "localhost" && hostname !== "127.0.0.1") {
+                return redirect(loginLocation({ error: "Demo login is only available locally.", returnTo }), response.headers);
+              }
+
+              const demoLogin = validateDemoLogin({
+                name: formData.get("name"),
+                email: formData.get("email"),
+              });
+
+              if ("error" in demoLogin) {
+                return redirect(loginLocation({ error: demoLogin.error, returnTo }), response.headers);
+              }
+
+              const user = await upsertDemoUser(env.campusmarket_db, demoLogin);
+              await sessions.save(response.headers, { userId: user.id, oauthState: null, returnTo: null }, { maxAge: true });
+              return redirect(returnTo === "/" ? "/dashboard" : returnTo, response.headers);
+            }
+
+            const localLogin = validatePasswordLoginInput({
               email: formData.get("email"),
+              password: formData.get("password"),
             });
 
             if ("error" in localLogin) {
               return redirect(
-                `/login?error=${encodeURIComponent(localLogin.error)}&returnTo=${encodeURIComponent(returnTo)}`,
+                loginLocation({ error: localLogin.error, returnTo }),
                 response.headers,
               );
             }
 
-            const user = await upsertLocalUser(env.campusmarket_db, localLogin);
+            const user = await authenticateLocalUser(env.campusmarket_db, localLogin);
+            if ("error" in user) {
+              return redirect(loginLocation({ error: user.error, returnTo }), response.headers);
+            }
+
             await sessions.save(response.headers, { userId: user.id, oauthState: null, returnTo: null }, { maxAge: true });
             return redirect(returnTo === "/" ? "/dashboard" : returnTo, response.headers);
           },
