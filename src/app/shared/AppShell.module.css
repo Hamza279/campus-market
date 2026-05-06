@@ -1,11 +1,13 @@
 :global(body) {
   margin: 0;
-  background: #f8fafc;
+  background: #f5f7fb;
+  font-family:
+    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
 }
 
 .shell {
   min-height: 100vh;
-  background: #f8fafc;
+  background: #f5f7fb;
   color: #111827;
 }
 
@@ -82,6 +84,10 @@
   color: #1d4ed8;
 }
 
+.activeLink {
+  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.12);
+}
+
 .authButton {
   border: 1px solid #cbd5e1;
   background: #ffffff;
@@ -139,7 +145,7 @@
 }
 
 .menuButton {
-  display: grid;
+  display: none;
   place-items: center;
   width: 2.75rem;
   height: 2.75rem;
@@ -197,7 +203,7 @@
   width: min(22rem, calc(100vw - 2rem));
   padding: 0.65rem;
   border: 1px solid rgba(148, 163, 184, 0.34);
-  border-radius: 1rem;
+  border-radius: 1.1rem;
   background: rgba(255, 255, 255, 0.98);
   box-shadow: 0 24px 48px rgba(15, 23, 42, 0.16);
   backdrop-filter: blur(14px);
@@ -207,6 +213,44 @@
   transform-origin: top right;
   transition: opacity 180ms ease, transform 180ms ease, visibility 180ms ease;
   visibility: hidden;
+}
+
+.mobileBackdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 900;
+  background: rgba(15, 23, 42, 0.18);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 180ms ease;
+}
+
+.mobileBackdropOpen {
+  opacity: 1;
+  pointer-events: auto;
+}
+
+.mobileNavHeader {
+  display: grid;
+  gap: 0.2rem;
+  padding: 0.75rem 0.85rem 0.55rem;
+}
+
+.mobileNavTitle {
+  color: #0f172a;
+  font-size: 0.78rem;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.mobileNavSubtitle {
+  min-width: 0;
+  overflow: hidden;
+  color: #64748b;
+  font-size: 0.9rem;
+  font-weight: 750;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .mobileNavOpen {
@@ -258,8 +302,11 @@
   }
 
   .desktopNav {
-    overflow-x: auto;
-    scrollbar-width: none;
+    display: none;
+  }
+
+  .menuButton {
+    display: grid;
   }
 
   .mobileNav {
@@ -279,18 +326,8 @@
   }
 
   .mobileNav {
+    top: 4.6rem;
     right: 0.75rem;
     width: calc(100vw - 1.5rem);
-  }
-
-  .userMenu {
-    padding: 0;
-    border: 0;
-    background: transparent;
-    box-shadow: none;
-  }
-
-  .userLabel {
-    display: none;
   }
 }

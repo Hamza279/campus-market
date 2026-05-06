@@ -160,6 +160,20 @@ export const AppShell = ({ children, currentUser = null }: AppShellProps) => {
         </a>
 
         <nav className={styles.desktopNav} aria-label="Primary navigation">
+          {navItems.map((item) => {
+            const active = item.match(pathname);
+
+            return (
+              <a
+                key={item.href}
+                href={item.href}
+                className={active ? `${styles.navLink} ${styles.activeLink}` : styles.navLink}
+                aria-current={active ? "page" : undefined}
+              >
+                {item.label}
+              </a>
+            );
+          })}
           {renderSessionControls()}
         </nav>
 
@@ -178,6 +192,7 @@ export const AppShell = ({ children, currentUser = null }: AppShellProps) => {
         </button>
       </header>
 
+      <div className={menuOpen ? `${styles.mobileBackdrop} ${styles.mobileBackdropOpen}` : styles.mobileBackdrop} />
       <nav
         id="mobile-navigation"
         className={menuOpen ? `${styles.mobileNav} ${styles.mobileNavOpen}` : styles.mobileNav}
@@ -185,6 +200,10 @@ export const AppShell = ({ children, currentUser = null }: AppShellProps) => {
         aria-hidden={!menuOpen}
         ref={mobileNavRef}
       >
+        <div className={styles.mobileNavHeader}>
+          <span className={styles.mobileNavTitle}>Menu</span>
+          {currentUser ? <span className={styles.mobileNavSubtitle}>{currentUser.name || currentUser.email}</span> : null}
+        </div>
         {renderMenuLinks()}
       </nav>
 

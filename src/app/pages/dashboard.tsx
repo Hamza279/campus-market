@@ -31,6 +31,7 @@ const formatAveragePrice = (items: Listing[]): string => {
 export const Dashboard = () => {
   const [items, setItems] = useState<Listing[]>([]);
   const [listingEvent] = useSyncedState<NewListingEvent | null>(null, NEW_LISTING_EVENT_KEY, LISTINGS_REALTIME_ROOM);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [savingIds, setSavingIds] = useState<Set<string>>(() => new Set());
   const [deletingIds, setDeletingIds] = useState<Set<string>>(() => new Set());
@@ -45,6 +46,8 @@ export const Dashboard = () => {
       setError(null);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load dashboard listings.");
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
@@ -84,6 +87,7 @@ export const Dashboard = () => {
       active: activeListings.length,
       sold: soldListings.length,
       averagePrice: formatAveragePrice(items),
+      estimatedValue: `$${items.reduce((sum, item) => sum + parsePrice(item.price), 0).toFixed(2)}`,
     };
   }, [items]);
 
@@ -160,6 +164,7 @@ export const Dashboard = () => {
     <div className={styles.page}>
       <header className={styles.header}>
         <div>
+          <p className={styles.eyebrow}>Seller workspace</p>
           <h1>Seller Dashboard</h1>
           <p className={styles.subtitle}>Manage every posted listing from one control panel.</p>
         </div>
@@ -186,6 +191,10 @@ export const Dashboard = () => {
           <span>Average price</span>
           <strong>{stats.averagePrice}</strong>
         </article>
+        <article className={styles.statCard}>
+          <span>Listed value</span>
+          <strong>{stats.estimatedValue}</strong>
+        </article>
       </section>
 
       <section className={styles.toolbar} aria-label="Dashboard filters">
@@ -199,17 +208,35 @@ export const Dashboard = () => {
           />
         </label>
 
-        <label className={styles.statusField}>
+        <div className={styles.statusField}>
           <span>Status</span>
-          <select value={statusFilter} onChange={(event) => setStatusFilter(event.target.value as StatusFilter)}>
-            <option value="all">All listings</option>
-            <option value="active">Active only</option>
-            <option value="sold">Sold only</option>
-          </select>
-        </label>
+          <div className={styles.segmentedControl} role="group" aria-label="Listing status">
+            {(["all", "active", "sold"] as const).map((status) => (
+              <button
+                key={status}
+                type="button"
+                className={statusFilter === status ? `${styles.segmentButton} ${styles.segmentButtonActive}` : styles.segmentButton}
+                onClick={() => setStatusFilter(status)}
+              >
+                {status === "all" ? "All" : status === "active" ? "Active" : "Sold"}
+              </button>
+            ))}
+          </div>
+        </div>
       </section>
 
-      {items.length === 0 ? (
+      {isLoading ? (
+        <div className={styles.grid} aria-label="Loading dashboard listings">
+          {Array.from({ length: 4 }, (_, index) => (
+            <div className={styles.skeletonCard} key={index} aria-hidden="true">
+              <span />
+              <strong />
+              <p />
+              <p />
+            </div>
+          ))}
+        </div>
+      ) : items.length === 0 ? (
         <div className={styles.emptyState}>
           <h2>No listings yet</h2>
           <p>Create a listing from the Sell page and it will appear here.</p>

@@ -72,6 +72,7 @@ const getPostedLabel = (listing: Listing): string => {
 
 export const Listings = () => {
   const [items, setItems] = useState<Listing[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -100,6 +101,8 @@ export const Listings = () => {
       setError(null);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load listings.");
+    } finally {
+      setIsLoading(false);
     }
   }, []);
 
@@ -141,6 +144,20 @@ export const Listings = () => {
     }, 3000);
 
     highlightTimeoutsRef.current.set(listingId, timeoutId);
+  }, []);
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const initialCategory = params.get("category");
+    const initialSearch = params.get("q");
+
+    if (initialCategory) {
+      setCategoryFilter(initialCategory);
+    }
+
+    if (initialSearch) {
+      setSearchQuery(initialSearch);
+    }
   }, []);
 
   useEffect(() => {
@@ -351,6 +368,8 @@ export const Listings = () => {
   ]);
 
   const visibleItems = filteredItems.slice(0, visibleCount);
+  const activeListings = items.filter((item) => !item.sold);
+  const featuredItems = activeListings.slice(0, 3);
 
   useEffect(() => {
     setVisibleCount(PAGE_SIZE);
@@ -360,6 +379,7 @@ export const Listings = () => {
     <div className={styles.page}>
       <header className={styles.header}>
         <div>
+          <p className={styles.eyebrow}>Browse marketplace</p>
           <h1>Campus Listings</h1>
           <p className={styles.subtitle}>Browse student-ready items nearby.</p>
         </div>
@@ -383,7 +403,40 @@ export const Listings = () => {
         </div>
       ) : null}
 
-      {error ? <p>{error}</p> : null}
+      <section className={styles.marketOverview} aria-label="Marketplace overview">
+        <article>
+          <span>Live listings</span>
+          <strong>{activeListings.length}</strong>
+        </article>
+        <article>
+          <span>Categories</span>
+          <strong>{categories.length || "-"}</strong>
+        </article>
+        <article>
+          <span>Saved</span>
+          <strong>{savedIds.size}</strong>
+        </article>
+      </section>
+
+      {featuredItems.length > 0 ? (
+        <section className={styles.featuredStrip} aria-labelledby="featured-listings-title">
+          <div className={styles.featuredStripHeader}>
+            <p className={styles.eyebrow}>Featured now</p>
+            <h2 id="featured-listings-title">Recently posted picks</h2>
+          </div>
+          <div className={styles.featuredMiniGrid}>
+            {featuredItems.map((item) => (
+              <a href={`/listings/${item.id}`} className={styles.featuredMiniCard} key={item.id}>
+                <span>{item.category}</span>
+                <strong>{item.title}</strong>
+                <em>{item.price}</em>
+              </a>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {error ? <p className={styles.errorMessage}>{error}</p> : null}
 
       <section className={styles.filters} aria-label="Listing filters">
         <div className={styles.filtersHeader}>
@@ -491,7 +544,18 @@ export const Listings = () => {
         </div>
       </section>
 
-      {filteredItems.length === 0 ? (
+      {isLoading ? (
+        <div className={styles.grid} aria-label="Loading listings">
+          {Array.from({ length: 6 }, (_, index) => (
+            <div className={styles.skeletonCard} key={index} aria-hidden="true">
+              <span />
+              <strong />
+              <p />
+              <p />
+            </div>
+          ))}
+        </div>
+      ) : filteredItems.length === 0 ? (
         <div className={styles.emptyState}>
           <h2>No listings match your filters</h2>
           <p>Try clearing saved-only mode, widening your price range, or searching a different keyword.</p>
@@ -513,46 +577,47 @@ export const Listings = () => {
             Clear filters
           </button>
         </div>
-      ) : null}
+      ) : (
+        <div className={styles.grid}>
+          {visibleItems.map((item, index) => {
+            const saved = savedIds.has(item.id);
 
-      <div className={styles.grid}>
-        {visibleItems.map((item) => {
-          const saved = savedIds.has(item.id);
+            return (
+              <ListingCard
+                key={item.id}
+                listing={item}
+                href={`/listings/${item.id}`}
+                postedLabel={getPostedLabel(item)}
+                highlighted={highlightedIds.has(item.id)}
+                featuredLabel={index < 3 && !item.sold ? "Featured" : undefined}
+                topAction={
+                  <button
+                    type="button"
+                    className={saved ? `${styles.saveButton} ${styles.saveButtonActive}` : styles.saveButton}
+                    aria-pressed={saved}
+                    aria-label={saved ? `Unsave ${item.title}` : `Save ${item.title}`}
+                    onClick={() => {
+                      setSavedIds((current) => {
+                        const next = new Set(current);
+                        if (next.has(item.id)) {
+                          next.delete(item.id);
+                        } else {
+                          next.add(item.id);
+                        }
+                        return next;
+                      });
+                    }}
+                  >
+                    {saved ? "Saved" : "Save"}
+                  </button>
+                }
+              />
+            );
+          })}
+        </div>
+      )}
 
-          return (
-            <ListingCard
-              key={item.id}
-              listing={item}
-              href={`/listings/${item.id}`}
-              postedLabel={getPostedLabel(item)}
-              highlighted={highlightedIds.has(item.id)}
-              topAction={
-                <button
-                  type="button"
-                  className={saved ? `${styles.saveButton} ${styles.saveButtonActive}` : styles.saveButton}
-                  aria-pressed={saved}
-                  aria-label={saved ? `Unsave ${item.title}` : `Save ${item.title}`}
-                  onClick={() => {
-                    setSavedIds((current) => {
-                      const next = new Set(current);
-                      if (next.has(item.id)) {
-                        next.delete(item.id);
-                      } else {
-                        next.add(item.id);
-                      }
-                      return next;
-                    });
-                  }}
-                >
-                  {saved ? "Saved" : "Save"}
-                </button>
-              }
-            />
-          );
-        })}
-      </div>
-
-      {visibleCount < filteredItems.length ? (
+      {!isLoading && visibleCount < filteredItems.length ? (
         <div className={styles.loadMoreRow}>
           <button type="button" className={styles.loadMoreButton} onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}>
             Load more

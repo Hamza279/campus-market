@@ -14,6 +14,7 @@ interface ListingCardProps {
   statusTone?: "active" | "sold";
   variant?: "buyer" | "seller";
   highlighted?: boolean;
+  featuredLabel?: string;
 }
 
 export const ListingCard = ({
@@ -26,6 +27,7 @@ export const ListingCard = ({
   statusTone,
   variant = "buyer",
   highlighted = false,
+  featuredLabel,
 }: ListingCardProps) => {
   const imageUrl = getListingImageSrc(listing.image);
   const resolvedStatusLabel = statusLabel ?? (listing.sold ? "Sold" : undefined);
@@ -42,6 +44,9 @@ export const ListingCard = ({
     <article className={cardClassName}>
       <a href={href} className={styles.imageLink} aria-label={`View ${listing.title}`}>
         <img src={imageUrl} alt={listing.title} className={styles.image} loading="lazy" />
+        <span className={styles.imageOverlay} />
+        <span className={styles.pricePill}>{listing.price}</span>
+        {featuredLabel ? <span className={styles.featuredPill}>{featuredLabel}</span> : null}
       </a>
 
       <div className={styles.body}>

@@ -41,6 +41,7 @@ const getListingTime = (listing: Listing): number => {
 
 export const Home = () => {
   const [items, setItems] = useState<Listing[]>([]);
+  const [loadingListings, setLoadingListings] = useState(true);
   const [listingEvent] = useSyncedState<NewListingEvent | null>(null, NEW_LISTING_EVENT_KEY, LISTINGS_REALTIME_ROOM);
 
   const loadListings = useCallback(async () => {
@@ -49,6 +50,8 @@ export const Home = () => {
       setItems(listings);
     } catch (error) {
       console.warn("[home] failed to load featured listings", error);
+    } finally {
+      setLoadingListings(false);
     }
   }, []);
 
@@ -108,7 +111,7 @@ export const Home = () => {
               <span className={styles.liveDot} aria-hidden="true" />
               <span className={styles.heroCardKicker}>Fresh on CampusMarket</span>
             </div>
-            <div className={styles.heroListing}>
+            <div className={loadingListings ? `${styles.heroListing} ${styles.heroListingLoading}` : styles.heroListing}>
               <span className={styles.heroListingTag}>{heroListing?.category ?? "Fresh listings"}</span>
               <strong className={styles.heroListingTitle}>{heroListing?.title ?? "New campus finds"}</strong>
               <span className={styles.heroListingMeta}>
@@ -123,7 +126,7 @@ export const Home = () => {
             </div>
             <div className={styles.miniStats}>
               <div className={styles.miniStat}>
-                <strong className={styles.miniStatValue}>7</strong>
+                <strong className={styles.miniStatValue}>{categories.length}</strong>
                 <span className={styles.miniStatLabel}>Categories</span>
               </div>
               <div className={styles.miniStat}>
@@ -144,7 +147,7 @@ export const Home = () => {
         </div>
         <div className={styles.categoryGrid}>
           {categories.map((category) => (
-            <a className={`${styles.categoryCard} ${styles[category.tone]}`} href="/listings" key={category.label}>
+            <a className={`${styles.categoryCard} ${styles[category.tone]}`} href={`/listings?category=${encodeURIComponent(category.label)}`} key={category.label}>
               <span className={styles.categoryIcon}>{category.icon}</span>
               <strong className={styles.categoryTitle}>{category.label}</strong>
               <span className={styles.categoryDescription}>{category.description}</span>
@@ -166,9 +169,18 @@ export const Home = () => {
           </a>
         </div>
         <div className={styles.featuredGrid}>
-          {featuredListings.length > 0 ? (
+          {loadingListings ? (
+            Array.from({ length: 3 }, (_, index) => (
+              <div className={styles.featuredSkeleton} key={index} aria-hidden="true">
+                <span />
+                <strong />
+                <p />
+                <p />
+              </div>
+            ))
+          ) : featuredListings.length > 0 ? (
             featuredListings.map((listing) => (
-              <ListingCard key={listing.id} listing={listing} href={`/listings/${listing.id}`} />
+              <ListingCard key={listing.id} listing={listing} href={`/listings/${listing.id}`} featuredLabel="Featured" />
             ))
           ) : (
             <div className={styles.emptyFeatured}>
