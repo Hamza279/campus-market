@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import type { AuthUser } from "@/auth/types";
 import styles from "./AppShell.module.css";
 
@@ -11,6 +11,7 @@ interface AppShellProps {
 
 interface NavItem {
   label: string;
+  mobileLabel?: string;
   href: string;
   match: (pathname: string) => boolean;
 }
@@ -23,16 +24,19 @@ const navItems: NavItem[] = [
   },
   {
     label: "Browse",
+    mobileLabel: "Listings",
     href: "/listings",
     match: (pathname) => pathname === "/listings" || pathname.startsWith("/listings/") || pathname.startsWith("/listing/"),
   },
   {
     label: "Sell",
+    mobileLabel: "Sell an Item",
     href: "/sell",
     match: (pathname) => pathname === "/sell",
   },
   {
     label: "Dashboard",
+    mobileLabel: "Seller Dashboard",
     href: "/dashboard",
     match: (pathname) => pathname === "/dashboard" || pathname.startsWith("/edit/"),
   },
@@ -51,20 +55,72 @@ const navItems: NavItem[] = [
 export const AppShell = ({ children, currentUser = null }: AppShellProps) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [pathname, setPathname] = useState("/");
+  const menuButtonRef = useRef<HTMLButtonElement>(null);
+  const mobileNavRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     setPathname(window.location.pathname);
   }, []);
 
+  useEffect(() => {
+    if (!menuOpen) {
+      return;
+    }
+
+    const handlePointerDown = (event: PointerEvent) => {
+      const target = event.target as Node;
+
+      if (menuButtonRef.current?.contains(target) || mobileNavRef.current?.contains(target)) {
+        return;
+      }
+
+      setMenuOpen(false);
+    };
+
+    const handleKeyDown = (event: KeyboardEvent) => {
+      if (event.key === "Escape") {
+        setMenuOpen(false);
+      }
+    };
+
+    document.addEventListener("pointerdown", handlePointerDown);
+    document.addEventListener("keydown", handleKeyDown);
+
+    return () => {
+      document.removeEventListener("pointerdown", handlePointerDown);
+      document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [menuOpen]);
+
   const closeMenu = () => {
     setMenuOpen(false);
   };
 
-  const renderNavLinks = (variant: "desktop" | "mobile") => {
+  const renderSessionControls = () => {
     const userLabel = currentUser?.name || currentUser?.email;
     const greetingName = currentUser?.name?.split(" ")[0] || currentUser?.email?.split("@")[0] || "there";
     const greetingLabel = `Hi ${greetingName}`;
 
+    return currentUser ? (
+      <div className={styles.userMenu}>
+        {currentUser.avatarUrl ? (
+          <img className={styles.avatar} src={currentUser.avatarUrl} alt="" referrerPolicy="no-referrer" />
+        ) : (
+          <span className={styles.avatarFallback}>{(userLabel ?? "U").slice(0, 1).toUpperCase()}</span>
+        )}
+        <span className={styles.userLabel}>{greetingLabel}</span>
+        <a className={styles.authButton} href="/logout" onClick={closeMenu}>
+          Logout
+        </a>
+      </div>
+    ) : (
+      <a className={styles.authButton} href="/login" onClick={closeMenu}>
+        Login
+      </a>
+    );
+  };
+
+  const renderMenuLinks = () => {
     return (
       <>
         {navItems.map((item) => {
@@ -78,28 +134,16 @@ export const AppShell = ({ children, currentUser = null }: AppShellProps) => {
               aria-current={active ? "page" : undefined}
               onClick={closeMenu}
             >
-              {item.label}
+              {item.mobileLabel ?? item.label}
             </a>
           );
         })}
         {currentUser ? (
-          <div className={variant === "desktop" ? styles.userMenu : `${styles.userMenu} ${styles.mobileUserMenu}`}>
-            {currentUser.avatarUrl ? (
-              <img className={styles.avatar} src={currentUser.avatarUrl} alt="" referrerPolicy="no-referrer" />
-            ) : (
-              <span className={styles.avatarFallback}>{(userLabel ?? "U").slice(0, 1).toUpperCase()}</span>
-            )}
-            <span className={styles.userLabel}>{greetingLabel}</span>
-            <a className={styles.authButton} href="/logout" onClick={closeMenu}>
-              Logout
-            </a>
-          </div>
+          <a className={styles.navLink} href="/logout" onClick={closeMenu}>
+            Logout
+          </a>
         ) : (
-          <a
-            className={variant === "desktop" ? styles.authButton : `${styles.authButton} ${styles.mobileAuthButton}`}
-            href="/login"
-            onClick={closeMenu}
-          >
+          <a className={`${styles.navLink} ${styles.mobileAuthButton}`} href="/login" onClick={closeMenu}>
             Login
           </a>
         )}
@@ -116,12 +160,13 @@ export const AppShell = ({ children, currentUser = null }: AppShellProps) => {
         </a>
 
         <nav className={styles.desktopNav} aria-label="Primary navigation">
-          {renderNavLinks("desktop")}
+          {renderSessionControls()}
         </nav>
 
         <button
           type="button"
           className={styles.menuButton}
+          ref={menuButtonRef}
           aria-label={menuOpen ? "Close menu" : "Open menu"}
           aria-expanded={menuOpen}
           aria-controls="mobile-navigation"
@@ -133,11 +178,15 @@ export const AppShell = ({ children, currentUser = null }: AppShellProps) => {
         </button>
       </header>
 
-      {menuOpen ? (
-        <nav id="mobile-navigation" className={styles.mobileNav} aria-label="Primary navigation">
-          {renderNavLinks("mobile")}
-        </nav>
-      ) : null}
+      <nav
+        id="mobile-navigation"
+        className={menuOpen ? `${styles.mobileNav} ${styles.mobileNavOpen}` : styles.mobileNav}
+        aria-label="Primary navigation"
+        aria-hidden={!menuOpen}
+        ref={mobileNavRef}
+      >
+        {renderMenuLinks()}
+      </nav>
 
       <main className={styles.main}>{children}</main>
     </div>
