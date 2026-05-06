@@ -352,6 +352,30 @@
   gap: 1.1rem;
 }
 
+.emptyFeatured {
+  display: grid;
+  grid-column: 1 / -1;
+  gap: 0.75rem;
+  justify-items: start;
+  border: 1px solid #dbe4ee;
+  border-radius: 1rem;
+  background: #ffffff;
+  padding: 1.5rem;
+  box-shadow: 0 16px 36px rgba(15, 23, 42, 0.08);
+}
+
+.emptyFeatured h3 {
+  margin: 0;
+  color: #0f172a;
+  font-size: 1.25rem;
+}
+
+.emptyFeatured p {
+  margin: 0;
+  color: #475569;
+  line-height: 1.6;
+}
+
 .listingCard {
   overflow: hidden;
   border: 1px solid #dbe4ee;

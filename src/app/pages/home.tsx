@@ -1,4 +1,11 @@
+"use client";
+
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSyncedState } from "rwsdk/use-synced-state/client";
+import { ListingCard } from "@/app/shared/ListingCard";
 import styles from "./home.module.css";
+import { getListings, type Listing } from "./listings.data";
+import { LISTINGS_REALTIME_ROOM, NEW_LISTING_EVENT_KEY, type NewListingEvent } from "./listings.realtime";
 
 const categories = [
   { label: "Books", icon: "BOOK", tone: "blue", description: "Textbooks, novels, course packs" },
@@ -7,33 +14,6 @@ const categories = [
   { label: "Supplies", icon: "BAG", tone: "rose", description: "Backpacks, calculators, class tools" },
   { label: "Bikes", icon: "BIKE", tone: "green", description: "Bikes, locks, helmets, scooters" },
   { label: "Dorm", icon: "DORM", tone: "violet", description: "Mini fridges, bedding, decor" },
-] as const;
-
-const featuredListings = [
-  {
-    title: "Campus Textbook Bundle",
-    price: "$48",
-    category: "Books",
-    location: "Dorm A",
-    condition: "Gently used",
-    badge: "Best value",
-  },
-  {
-    title: "Laptop Stand + Wireless Mouse",
-    price: "$32",
-    category: "Electronics",
-    location: "North Quad",
-    condition: "Excellent",
-    badge: "Study setup",
-  },
-  {
-    title: "Commuter Bike with Lock",
-    price: "$85",
-    category: "Bikes",
-    location: "West Hall",
-    condition: "Good",
-    badge: "Popular",
-  },
 ] as const;
 
 const steps = [
@@ -54,7 +34,55 @@ const steps = [
   },
 ] as const;
 
+const getListingTime = (listing: Listing): number => {
+  const timestamp = listing.createdAt ? Date.parse(listing.createdAt) : 0;
+  return Number.isFinite(timestamp) ? timestamp : 0;
+};
+
 export const Home = () => {
+  const [items, setItems] = useState<Listing[]>([]);
+  const [listingEvent] = useSyncedState<NewListingEvent | null>(null, NEW_LISTING_EVENT_KEY, LISTINGS_REALTIME_ROOM);
+
+  const loadListings = useCallback(async () => {
+    try {
+      const listings = await getListings();
+      setItems(listings);
+    } catch (error) {
+      console.warn("[home] failed to load featured listings", error);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadListings();
+
+    const refreshOnReturn = () => {
+      void loadListings();
+    };
+
+    window.addEventListener("focus", refreshOnReturn);
+    window.addEventListener("pageshow", refreshOnReturn);
+
+    return () => {
+      window.removeEventListener("focus", refreshOnReturn);
+      window.removeEventListener("pageshow", refreshOnReturn);
+    };
+  }, [loadListings]);
+
+  useEffect(() => {
+    if (listingEvent) {
+      void loadListings();
+    }
+  }, [listingEvent, loadListings]);
+
+  const featuredListings = useMemo(() => {
+    return items
+      .filter((listing) => !listing.sold)
+      .sort((a, b) => getListingTime(b) - getListingTime(a))
+      .slice(0, 3);
+  }, [items]);
+
+  const heroListing = featuredListings[0];
+
   return (
     <div className={styles.page}>
       <section className={styles.heroSection}>
@@ -81,12 +109,14 @@ export const Home = () => {
               <span className={styles.heroCardKicker}>Fresh on CampusMarket</span>
             </div>
             <div className={styles.heroListing}>
-              <span className={styles.heroListingTag}>Books</span>
-              <strong className={styles.heroListingTitle}>Semester textbook bundle</strong>
-              <span className={styles.heroListingMeta}>Dorm A • Gently used</span>
+              <span className={styles.heroListingTag}>{heroListing?.category ?? "Fresh listings"}</span>
+              <strong className={styles.heroListingTitle}>{heroListing?.title ?? "New campus finds"}</strong>
+              <span className={styles.heroListingMeta}>
+                {heroListing ? `${heroListing.location} - ${heroListing.condition}` : "Browse student-posted items"}
+              </span>
               <div className={styles.heroListingFooter}>
-                <strong className={styles.heroListingPrice}>$48</strong>
-                <a className={styles.smallButton} href="/listings">
+                <strong className={styles.heroListingPrice}>{heroListing?.price ?? "Live"}</strong>
+                <a className={styles.smallButton} href={heroListing ? `/listings/${heroListing.id}` : "/listings"}>
                   View deal
                 </a>
               </div>
@@ -136,30 +166,19 @@ export const Home = () => {
           </a>
         </div>
         <div className={styles.featuredGrid}>
-          {featuredListings.map((listing) => (
-            <article className={styles.listingCard} key={listing.title}>
-              <div className={styles.listingVisual}>
-                <span className={styles.listingBadge}>{listing.badge}</span>
-              </div>
-              <div className={styles.listingContent}>
-                <div className={styles.listingTopline}>
-                  <span className={styles.listingCategory}>{listing.category}</span>
-                  <strong className={styles.listingPrice}>{listing.price}</strong>
-                </div>
-                <h3 className={styles.listingTitle}>{listing.title}</h3>
-                <dl className={styles.listingDetails}>
-                  <div className={styles.detailItem}>
-                    <dt className={styles.detailLabel}>Location</dt>
-                    <dd className={styles.detailValue}>{listing.location}</dd>
-                  </div>
-                  <div className={styles.detailItem}>
-                    <dt className={styles.detailLabel}>Condition</dt>
-                    <dd className={styles.detailValue}>{listing.condition}</dd>
-                  </div>
-                </dl>
-              </div>
-            </article>
-          ))}
+          {featuredListings.length > 0 ? (
+            featuredListings.map((listing) => (
+              <ListingCard key={listing.id} listing={listing} href={`/listings/${listing.id}`} />
+            ))
+          ) : (
+            <div className={styles.emptyFeatured}>
+              <h3>No live listings yet</h3>
+              <p>Post the first item from the Sell page and it will appear here.</p>
+              <a className={styles.sectionButton} href="/sell">
+                Sell an item
+              </a>
+            </div>
+          )}
         </div>
       </section>
 

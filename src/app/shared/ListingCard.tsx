@@ -70,7 +70,7 @@ export const ListingCard = ({
 
         <dl className={styles.metaGrid}>
           <div>
-            <dt>Location</dt>
+            <dt>Pickup</dt>
             <dd>{listing.location}</dd>
           </div>
           <div>

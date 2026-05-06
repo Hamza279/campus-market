@@ -245,7 +245,11 @@ const validateListingPayload = (payload: ListingPayload): string | null => {
     return null;
 };
 
-const normalizeListingPayload = (payload: ListingPayload): NormalizedListingPayload => {
+const normalizeListingPayload = (
+  payload: ListingPayload,
+  ownerId = DEFAULT_USER_ID,
+  sellerName = DEFAULT_SELLER_NAME,
+): NormalizedListingPayload => {
   return {
     title: optionalStringField(payload, "title")?.trim() || "Untitled item",
     price: optionalStringField(payload, "price")?.trim() || "$0",
@@ -256,8 +260,8 @@ const normalizeListingPayload = (payload: ListingPayload): NormalizedListingPayl
     image: normalizeImageUrlForSave(optionalStringField(payload, "image") ?? ""),
     sold: payload.sold === true ? 1 : 0,
     isSeeded: payload.isSeeded === true ? 1 : 0,
-    ownerId: DEFAULT_USER_ID,
-    sellerName: DEFAULT_SELLER_NAME,
+    ownerId,
+    sellerName,
   };
 };
 
@@ -373,7 +377,7 @@ const createListingRecord = async ({
     return { error: payloadError, status: 400 };
   }
 
-  const listing = normalizeListingPayload(payload);
+  const listing = normalizeListingPayload(payload, ownerId, sellerName);
   const id = crypto.randomUUID();
   const insertParams = [
     id,
@@ -450,6 +454,11 @@ const getUserById = async (db: D1Database, id: string): Promise<AuthUser | null>
 const redirect = (location: string, headers = new Headers()) => {
   headers.set("Location", location);
   return new Response(null, { status: 302, headers });
+};
+
+const isLocalRequest = (request: Request) => {
+  const hostname = new URL(request.url).hostname.toLowerCase();
+  return hostname === "localhost" || hostname === "127.0.0.1";
 };
 
 const safeReturnTo = (returnTo: string | null | undefined) => {
@@ -540,8 +549,7 @@ const createApp = (env: Env) => {
             const url = new URL(request.url);
             const returnTo = safeReturnTo(url.searchParams.get("returnTo") ?? "/dashboard");
             const mode = url.searchParams.get("mode") === "signup" ? "signup" : "login";
-            const hostname = url.hostname.toLowerCase();
-            const demoEnabled = hostname === "localhost" || hostname === "127.0.0.1";
+            const demoEnabled = isLocalRequest(request);
 
             if (ctx.user) {
               return redirect(returnTo === "/" ? "/dashboard" : returnTo);
@@ -592,9 +600,7 @@ const createApp = (env: Env) => {
             }
 
             if (intent === "demo") {
-              const url = new URL(request.url);
-              const hostname = url.hostname.toLowerCase();
-              if (hostname !== "localhost" && hostname !== "127.0.0.1") {
+              if (!isLocalRequest(request)) {
                 return redirect(loginLocation({ error: "Demo login is only available locally.", returnTo }), response.headers);
               }
 
@@ -992,6 +998,10 @@ const createApp = (env: Env) => {
 
         route("/api/dev/realtime-event", {
           get: async ({ request }) => {
+            if (!isLocalRequest(request)) {
+              return json({ error: "Not found." }, { status: 404 });
+            }
+
             console.info("[worker] realtime debug event fetch", {
               method: request.method,
               url: request.url,
@@ -1001,6 +1011,10 @@ const createApp = (env: Env) => {
             return json({ event: latestRealtimeDebugEvent });
           },
           post: async ({ request }) => {
+            if (!isLocalRequest(request)) {
+              return json({ error: "Not found." }, { status: 404 });
+            }
+
             try {
               await ensureMarketplaceSchema(env.campusmarket_db);
 
@@ -1097,7 +1111,13 @@ const createApp = (env: Env) => {
         ]),
         route("/messages", ({ ctx }: { ctx: AppContext }) => withAppShell(<Messages />, ctx.user)),
         route("/saved", ({ ctx }: { ctx: AppContext }) => withAppShell(<SavedItems />, ctx.user)),
-        route("/dev/realtime", ({ ctx }: { ctx: AppContext }) => withAppShell(<RealtimeDebug />, ctx.user)),
+        route("/dev/realtime", ({ request, ctx }: { request: Request; ctx: AppContext }) => {
+          if (!isLocalRequest(request)) {
+            return new Response("Not found.", { status: 404 });
+          }
+
+          return withAppShell(<RealtimeDebug />, ctx.user);
+        }),
         route("/edit/:id", [
           requireUser,
           ({ params, ctx }: { params: { id: string }; ctx: AppContext }) => withAppShell(<Edit listingId={params.id} />, ctx.user),

@@ -1,15 +1,22 @@
 "use client";
 
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { useSyncedState } from "rwsdk/use-synced-state/client";
 import styles from "./dashboard.module.css";
 import { ListingCard } from "@/app/shared/ListingCard";
 import { canManageListing, deleteListing, getListings, Listing, updateListing } from "./listings.data";
+import { LISTINGS_REALTIME_ROOM, NEW_LISTING_EVENT_KEY, type NewListingEvent } from "./listings.realtime";
 
 type StatusFilter = "all" | "active" | "sold";
 
 const parsePrice = (price: string): number => {
   const parsed = Number.parseFloat(price.replace(/[^0-9.]/g, ""));
   return Number.isFinite(parsed) ? parsed : 0;
+};
+
+const getListingTime = (listing: Listing): number => {
+  const timestamp = listing.createdAt ? Date.parse(listing.createdAt) : 0;
+  return Number.isFinite(timestamp) ? timestamp : 0;
 };
 
 const formatAveragePrice = (items: Listing[]): string => {
@@ -23,6 +30,7 @@ const formatAveragePrice = (items: Listing[]): string => {
 
 export const Dashboard = () => {
   const [items, setItems] = useState<Listing[]>([]);
+  const [listingEvent] = useSyncedState<NewListingEvent | null>(null, NEW_LISTING_EVENT_KEY, LISTINGS_REALTIME_ROOM);
   const [error, setError] = useState<string | null>(null);
   const [savingIds, setSavingIds] = useState<Set<string>>(() => new Set());
   const [deletingIds, setDeletingIds] = useState<Set<string>>(() => new Set());
@@ -33,7 +41,7 @@ export const Dashboard = () => {
   const loadListings = useCallback(async () => {
     try {
       const listings = await getListings({ mine: true });
-      setItems(listings);
+      setItems([...listings].sort((a, b) => getListingTime(b) - getListingTime(a)));
       setError(null);
     } catch (loadError) {
       setError(loadError instanceof Error ? loadError.message : "Failed to load dashboard listings.");
@@ -61,6 +69,12 @@ export const Dashboard = () => {
     };
   }, [loadListings]);
 
+  useEffect(() => {
+    if (listingEvent) {
+      void loadListings();
+    }
+  }, [listingEvent, loadListings]);
+
   const stats = useMemo(() => {
     const soldListings = items.filter((item) => item.sold);
     const activeListings = items.filter((item) => !item.sold);
@@ -77,7 +91,9 @@ export const Dashboard = () => {
     const normalizedSearch = searchQuery.trim().toLowerCase();
 
     return items.filter((item) => {
-      if (normalizedSearch && !item.title.toLowerCase().includes(normalizedSearch)) {
+      const searchable = `${item.title} ${item.description} ${item.category} ${item.condition} ${item.location}`.toLowerCase();
+
+      if (normalizedSearch && !searchable.includes(normalizedSearch)) {
         return false;
       }
 

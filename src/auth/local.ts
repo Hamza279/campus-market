@@ -1,6 +1,9 @@
 import type { AuthUser } from "./types";
 
 const PASSWORD_MIN_LENGTH = 8;
+const PASSWORD_ALGORITHM = "pbkdf2-sha256";
+const PASSWORD_ITERATIONS = 100_000;
+const PASSWORD_SALT_BYTES = 16;
 
 const normalizeEmail = (email: string) => email.trim().toLowerCase();
 
@@ -8,12 +11,90 @@ const isValidEmail = (email: string) => /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)
 
 const toStringValue = (value: FormDataEntryValue | null) => (typeof value === "string" ? value.trim() : "");
 
-const hashPassword = async (password: string) => {
-  const data = new TextEncoder().encode(password);
-  const digest = await crypto.subtle.digest("SHA-256", data);
-  return Array.from(new Uint8Array(digest))
+const bytesToHex = (bytes: Uint8Array) => {
+  return Array.from(bytes)
     .map((byte) => byte.toString(16).padStart(2, "0"))
     .join("");
+};
+
+const hexToBytes = (hex: string) => {
+  if (hex.length % 2 !== 0 || !/^[0-9a-f]+$/i.test(hex)) {
+    return null;
+  }
+
+  const bytes = new Uint8Array(hex.length / 2);
+  for (let index = 0; index < bytes.length; index += 1) {
+    bytes[index] = Number.parseInt(hex.slice(index * 2, index * 2 + 2), 16);
+  }
+  return bytes;
+};
+
+const timingSafeEqual = (left: Uint8Array, right: Uint8Array) => {
+  if (left.length !== right.length) {
+    return false;
+  }
+
+  let difference = 0;
+  for (let index = 0; index < left.length; index += 1) {
+    difference |= left[index] ^ right[index];
+  }
+  return difference === 0;
+};
+
+const legacyHashPassword = async (password: string) => {
+  const data = new TextEncoder().encode(password);
+  const digest = await crypto.subtle.digest("SHA-256", data);
+  return bytesToHex(new Uint8Array(digest));
+};
+
+const derivePasswordHash = async (password: string, salt: Uint8Array, iterations = PASSWORD_ITERATIONS) => {
+  const key = await crypto.subtle.importKey("raw", new TextEncoder().encode(password), "PBKDF2", false, ["deriveBits"]);
+  const saltBuffer = salt.buffer.slice(salt.byteOffset, salt.byteOffset + salt.byteLength) as ArrayBuffer;
+  const derivedBits = await crypto.subtle.deriveBits(
+    {
+      name: "PBKDF2",
+      hash: "SHA-256",
+      salt: saltBuffer,
+      iterations,
+    },
+    key,
+    256,
+  );
+  return new Uint8Array(derivedBits);
+};
+
+const hashPassword = async (password: string) => {
+  const salt = crypto.getRandomValues(new Uint8Array(PASSWORD_SALT_BYTES));
+  const hash = await derivePasswordHash(password, salt);
+  return `${PASSWORD_ALGORITHM}$${PASSWORD_ITERATIONS}$${bytesToHex(salt)}$${bytesToHex(hash)}`;
+};
+
+const verifyPassword = async (
+  password: string,
+  storedHash: string,
+): Promise<{ valid: boolean; needsUpgrade: boolean }> => {
+  const [algorithm, iterationsValue, saltValue, hashValue] = storedHash.split("$");
+  if (algorithm === PASSWORD_ALGORITHM && iterationsValue && saltValue && hashValue) {
+    const iterations = Number.parseInt(iterationsValue, 10);
+    const salt = hexToBytes(saltValue);
+    const expectedHash = hexToBytes(hashValue);
+
+    if (!Number.isFinite(iterations) || iterations < 1 || !salt || !expectedHash) {
+      return { valid: false, needsUpgrade: false };
+    }
+
+    const actualHash = await derivePasswordHash(password, salt, iterations);
+    return {
+      valid: timingSafeEqual(actualHash, expectedHash),
+      needsUpgrade: iterations < PASSWORD_ITERATIONS,
+    };
+  }
+
+  const legacyHash = await legacyHashPassword(password);
+  return {
+    valid: timingSafeEqual(new TextEncoder().encode(legacyHash), new TextEncoder().encode(storedHash)),
+    needsUpgrade: legacyHash === storedHash,
+  };
 };
 
 const selectUserByEmail = async (db: D1Database, email: string) => {
@@ -193,9 +274,22 @@ export const authenticateLocalUser = async (
     return { error: "Invalid email or password." };
   }
 
-  const passwordHash = await hashPassword(credentials.password);
-  if (passwordHash !== user.passwordHash) {
+  const passwordCheck = await verifyPassword(credentials.password, user.passwordHash);
+  if (!passwordCheck.valid) {
     return { error: "Invalid email or password." };
+  }
+
+  if (passwordCheck.needsUpgrade) {
+    await db
+      .prepare(
+        `
+          UPDATE users
+          SET password_hash = ?, updated_at = ?
+          WHERE id = ?
+        `,
+      )
+      .bind(await hashPassword(credentials.password), new Date().toISOString(), user.id)
+      .run();
   }
 
   const { passwordHash: _passwordHash, ...authUser } = user;

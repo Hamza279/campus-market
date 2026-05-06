@@ -17,6 +17,17 @@ const GOOGLE_AUTH_URL = "https://accounts.google.com/o/oauth2/v2/auth";
 const GOOGLE_TOKEN_URL = "https://oauth2.googleapis.com/token";
 const GOOGLE_USERINFO_URL = "https://openidconnect.googleapis.com/v1/userinfo";
 
+const getGoogleCredentials = (env: Env) => {
+  if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) {
+    throw new Error("Google OAuth is not configured.");
+  }
+
+  return {
+    clientId: env.GOOGLE_CLIENT_ID,
+    clientSecret: env.GOOGLE_CLIENT_SECRET,
+  };
+};
+
 export const getAppUrl = (request: Request, env: Env) => {
   return (env.APP_URL || env.BASE_URL || new URL(request.url).origin).replace(/\/$/, "");
 };
@@ -26,8 +37,9 @@ export const getGoogleRedirectUri = (request: Request, env: Env) => {
 };
 
 export const buildGoogleAuthUrl = (request: Request, env: Env, state: string) => {
+  const { clientId } = getGoogleCredentials(env);
   const url = new URL(GOOGLE_AUTH_URL);
-  url.searchParams.set("client_id", env.GOOGLE_CLIENT_ID);
+  url.searchParams.set("client_id", clientId);
   url.searchParams.set("redirect_uri", getGoogleRedirectUri(request, env));
   url.searchParams.set("response_type", "code");
   url.searchParams.set("scope", "openid email profile");
@@ -37,6 +49,7 @@ export const buildGoogleAuthUrl = (request: Request, env: Env, state: string) =>
 };
 
 export const exchangeGoogleCode = async (request: Request, env: Env, code: string): Promise<GoogleUserInfo> => {
+  const { clientId, clientSecret } = getGoogleCredentials(env);
   const tokenResponse = await fetch(GOOGLE_TOKEN_URL, {
     method: "POST",
     headers: {
@@ -44,8 +57,8 @@ export const exchangeGoogleCode = async (request: Request, env: Env, code: strin
       Accept: "application/json",
     },
     body: new URLSearchParams({
-      client_id: env.GOOGLE_CLIENT_ID,
-      client_secret: env.GOOGLE_CLIENT_SECRET,
+      client_id: clientId,
+      client_secret: clientSecret,
       code,
       grant_type: "authorization_code",
       redirect_uri: getGoogleRedirectUri(request, env),

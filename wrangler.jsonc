@@ -21,7 +21,8 @@
 	},
 	// Environment variables
 	"vars": {
-		// Add non-secret environment variables here. Secrets should be set with `wrangler secret put`.
+		// Non-secret production origin. Secrets should be set with `wrangler secret put`.
+		"APP_URL": "https://campus-market.hamzaalkasasbeh96.workers.dev"
 	},
 	"d1_databases": [
 		{

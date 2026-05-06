@@ -288,7 +288,7 @@ export const Listings = () => {
 
     return items
       .filter((item) => {
-        const searchable = `${item.title} ${item.description}`.toLowerCase();
+        const searchable = `${item.title} ${item.description} ${item.category} ${item.condition} ${item.location} ${item.sellerName}`.toLowerCase();
         const itemPrice = parsePrice(item.price);
 
         if (normalizedSearch && !searchable.includes(normalizedSearch)) {
