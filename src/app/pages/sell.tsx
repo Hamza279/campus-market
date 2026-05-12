@@ -2,8 +2,10 @@
 
 import { useState } from "react";
 import styles from "./sell.module.css";
-import { getImageUrlValidationError, getListingImageSrc, normalizeImageUrlForSave } from "./image-url";
+import { getListingImageSrc } from "./image-url";
+import { createImageThumbnail, getImageFileValidationError, IMAGE_UPLOAD_ACCEPT } from "./image-upload";
 import { createListing } from "./sell.functions";
+import { uploadListingImage, type UploadedListingImage } from "./listings.data";
 
 interface SellForm {
   title: string;
@@ -12,7 +14,10 @@ interface SellForm {
   condition: string;
   category: string;
   description: string;
-  image: string;
+  imageUrl: string;
+  imageKey: string;
+  thumbnailUrl: string;
+  thumbnailKey: string;
 }
 
 type SellFormErrors = Partial<Record<keyof SellForm, string>>;
@@ -29,15 +34,20 @@ export const Sell = () => {
     condition: "",
     category: "",
     description: "",
-    image: "",
+    imageUrl: "",
+    imageKey: "",
+    thumbnailUrl: "",
+    thumbnailKey: "",
   });
   const [submitting, setSubmitting] = useState(false);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const [isDraggingImage, setIsDraggingImage] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [fieldErrors, setFieldErrors] = useState<SellFormErrors>({});
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [createdListingId, setCreatedListingId] = useState<string | null>(null);
-  const normalizedImageUrl = normalizeImageUrlForSave(form.image);
-  const previewImageUrl = getListingImageSrc(form.image);
+  const previewImageUrl = getListingImageSrc(form.thumbnailUrl || form.imageUrl);
   const descriptionCount = form.description.length;
 
   const validateForm = (): SellFormErrors => {
@@ -72,9 +82,8 @@ export const Sell = () => {
       errors.description = `Description must be ${DESCRIPTION_LIMIT} characters or fewer.`;
     }
 
-    const imageError = getImageUrlValidationError(form.image);
-    if (imageError) {
-      errors.image = imageError;
+    if (!form.imageUrl || !form.imageKey || !form.thumbnailUrl || !form.thumbnailKey) {
+      errors.imageUrl = "Upload an item image.";
     }
 
     return errors;
@@ -105,6 +114,47 @@ export const Sell = () => {
     });
   };
 
+  const handleImageUpload = async (file: File) => {
+    const validationError = getImageFileValidationError(file);
+    if (validationError) {
+      setFieldErrors((current) => ({ ...current, imageUrl: validationError }));
+      setError("Please fix the highlighted fields.");
+      return;
+    }
+
+    setUploadingImage(true);
+    setUploadProgress(0);
+    setError(null);
+    setFieldErrors((current) => {
+      const next = { ...current };
+      delete next.imageUrl;
+      return next;
+    });
+
+    try {
+      const thumbnail = await createImageThumbnail(file);
+      const uploaded: UploadedListingImage = await uploadListingImage({
+        file,
+        thumbnail,
+        onProgress: setUploadProgress,
+      });
+
+      setForm((current) => ({
+        ...current,
+        imageUrl: uploaded.imageUrl,
+        imageKey: uploaded.imageKey,
+        thumbnailUrl: uploaded.thumbnailUrl,
+        thumbnailKey: uploaded.thumbnailKey,
+      }));
+      setUploadProgress(100);
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : "Failed to upload image.");
+    } finally {
+      setUploadingImage(false);
+      setIsDraggingImage(false);
+    }
+  };
+
   const handleSubmit = async (event: React.FormEvent<HTMLFormElement>) => {
     event.preventDefault();
 
@@ -128,7 +178,12 @@ export const Sell = () => {
         condition: form.condition,
         category: form.category,
         description: form.description.trim(),
-        image: normalizedImageUrl,
+        image: form.imageUrl,
+        imageUrl: form.imageUrl,
+        imageKey: form.imageKey,
+        thumbnailUrl: form.thumbnailUrl,
+        thumbnailKey: form.thumbnailKey,
+        status: "active",
       });
 
       setSuccessMessage("Listing created successfully.");
@@ -140,7 +195,10 @@ export const Sell = () => {
         condition: "",
         category: "",
         description: "",
-        image: "",
+        imageUrl: "",
+        imageKey: "",
+        thumbnailUrl: "",
+        thumbnailKey: "",
       });
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Failed to create listing.");
@@ -268,23 +326,51 @@ export const Sell = () => {
         </div>
 
         <div className={styles.formRow}>
-          <label htmlFor="image">Image URL</label>
-          <input
-            id="image"
-            name="image"
-            type="text"
-            value={form.image}
-            onChange={handleChange}
-            placeholder="Image URL or mock placeholder"
-            aria-invalid={fieldErrors.image ? "true" : "false"}
-          />
-          {fieldErrors.image ? <p className={styles.fieldError}>{fieldErrors.image}</p> : null}
+          <label htmlFor="imageUpload">Item image</label>
+          <div
+            className={isDraggingImage ? `${styles.dropZone} ${styles.dropZoneActive}` : styles.dropZone}
+            onDragEnter={(event) => {
+              event.preventDefault();
+              setIsDraggingImage(true);
+            }}
+            onDragOver={(event) => event.preventDefault()}
+            onDragLeave={() => setIsDraggingImage(false)}
+            onDrop={(event) => {
+              event.preventDefault();
+              const file = event.dataTransfer.files.item(0);
+              if (file) {
+                void handleImageUpload(file);
+              }
+            }}
+          >
+            <input
+              id="imageUpload"
+              name="imageUpload"
+              type="file"
+              accept={IMAGE_UPLOAD_ACCEPT}
+              onChange={(event) => {
+                const file = event.target.files?.[0];
+                if (file) {
+                  void handleImageUpload(file);
+                }
+              }}
+              aria-invalid={fieldErrors.imageUrl ? "true" : "false"}
+            />
+            <strong>{uploadingImage ? "Uploading image..." : "Drop an image here or tap to choose"}</strong>
+            <span>JPG, PNG, or WebP up to 8 MB. A thumbnail is generated before upload.</span>
+            {uploadingImage || uploadProgress > 0 ? (
+              <div className={styles.progressTrack} aria-label="Image upload progress">
+                <span style={{ width: `${uploadProgress}%` }} />
+              </div>
+            ) : null}
+          </div>
+          {fieldErrors.imageUrl ? <p className={styles.fieldError}>{fieldErrors.imageUrl}</p> : null}
           <div className={styles.imagePlaceholder}>
             <img src={previewImageUrl} alt="Listing preview" className={styles.imagePreview} />
           </div>
         </div>
 
-        <button type="submit" className={styles.submitButton} disabled={submitting}>
+        <button type="submit" className={styles.submitButton} disabled={submitting || uploadingImage}>
           {submitting ? "Creating..." : "Create listing"}
         </button>
         {error ? <p className={styles.formError}>{error}</p> : null}

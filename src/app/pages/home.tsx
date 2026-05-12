@@ -42,14 +42,17 @@ const getListingTime = (listing: Listing): number => {
 export const Home = () => {
   const [items, setItems] = useState<Listing[]>([]);
   const [loadingListings, setLoadingListings] = useState(true);
+  const [listingError, setListingError] = useState<string | null>(null);
   const [listingEvent] = useSyncedState<NewListingEvent | null>(null, NEW_LISTING_EVENT_KEY, LISTINGS_REALTIME_ROOM);
 
   const loadListings = useCallback(async () => {
     try {
       const listings = await getListings();
       setItems(listings);
+      setListingError(null);
     } catch (error) {
       console.warn("[home] failed to load featured listings", error);
+      setListingError(error instanceof Error ? error.message : "Failed to load listings.");
     } finally {
       setLoadingListings(false);
     }
@@ -178,6 +181,14 @@ export const Home = () => {
                 <p />
               </div>
             ))
+          ) : listingError ? (
+            <div className={styles.emptyFeatured}>
+              <h3>Listings could not load</h3>
+              <p>{listingError}</p>
+              <a className={styles.sectionButton} href="/listings">
+                Try Browse
+              </a>
+            </div>
           ) : featuredListings.length > 0 ? (
             featuredListings.map((listing) => (
               <ListingCard key={listing.id} listing={listing} href={`/listings/${listing.id}`} featuredLabel="Featured" />

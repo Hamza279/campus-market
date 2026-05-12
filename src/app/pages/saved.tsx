@@ -1,27 +1,93 @@
 "use client";
 
+import { useCallback, useEffect, useState } from "react";
+import { ListingCard } from "@/app/shared/ListingCard";
 import styles from "./placeholder.module.css";
+import { getSavedListings, Listing, unsaveListing } from "./listings.data";
 
 export const SavedItems = () => {
+  const [items, setItems] = useState<Listing[]>([]);
+  const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
+  const [removingIds, setRemovingIds] = useState<Set<string>>(() => new Set());
+
+  const loadSavedListings = useCallback(async () => {
+    try {
+      const savedListings = await getSavedListings();
+      setItems(savedListings);
+      setError(null);
+    } catch (loadError) {
+      setError(loadError instanceof Error ? loadError.message : "Failed to load saved listings.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
+  useEffect(() => {
+    void loadSavedListings();
+  }, [loadSavedListings]);
+
+  const handleUnsave = async (listing: Listing) => {
+    setRemovingIds((current) => new Set(current).add(listing.id));
+
+    try {
+      await unsaveListing(listing.id);
+      setItems((current) => current.filter((item) => item.id !== listing.id));
+      setError(null);
+    } catch (removeError) {
+      setError(removeError instanceof Error ? removeError.message : "Failed to remove saved listing.");
+    } finally {
+      setRemovingIds((current) => {
+        const next = new Set(current);
+        next.delete(listing.id);
+        return next;
+      });
+    }
+  };
+
   return (
     <div className={styles.page}>
       <header className={styles.header}>
         <h1>Saved Items</h1>
-        <p className={styles.subtitle}>
-          Saved listings are currently stored in the browser from the Listings page.
-        </p>
+        <p className={styles.subtitle}>Your watchlist follows your account across devices.</p>
       </header>
 
-      <section className={styles.panel}>
-        <h2>Saved view coming next</h2>
-        <p>
-          This route keeps the menu complete without changing the current saved-listing behavior. A full saved-items
-          page can read the existing local saved IDs in a later pass.
-        </p>
-        <a href="/listings" className={styles.actionLink}>
-          Open listings
-        </a>
-      </section>
+      {error ? <p className={styles.errorMessage}>{error}</p> : null}
+
+      {isLoading ? (
+        <section className={styles.panel}>
+          <h2>Loading saved items</h2>
+          <p>Fetching your saved listings.</p>
+        </section>
+      ) : items.length === 0 ? (
+        <section className={styles.panel}>
+          <h2>No saved items yet</h2>
+          <p>Save listings from Browse and they will appear here.</p>
+          <a href="/listings" className={styles.actionLink}>
+            Browse listings
+          </a>
+        </section>
+      ) : (
+        <section className={styles.grid} aria-label="Saved listings">
+          {items.map((item) => (
+            <ListingCard
+              key={item.id}
+              listing={item}
+              href={`/listings/${item.id}`}
+              footerActions={
+                <button
+                  type="button"
+                  className={styles.secondaryButton}
+                  onClick={() => void handleUnsave(item)}
+                  disabled={removingIds.has(item.id)}
+                >
+                  {removingIds.has(item.id) ? "Removing..." : "Remove from saved"}
+                </button>
+              }
+            />
+          ))}
+        </section>
+      )}
     </div>
   );
 };

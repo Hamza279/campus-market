@@ -4,7 +4,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { initSyncedStateClient, useSyncedState } from "rwsdk/use-synced-state/client";
 import styles from "./listings.module.css";
 import { ListingCard } from "@/app/shared/ListingCard";
-import { getListings, Listing } from "./listings.data";
+import { getListings, getSavedListingIds, Listing, saveListing, unsaveListing } from "./listings.data";
 import { LISTINGS_REALTIME_ROOM, NEW_LISTING_EVENT_KEY, type NewListingEvent } from "./listings.realtime";
 
 type SortOption = "newest" | "price-asc" | "price-desc";
@@ -86,6 +86,7 @@ export const Listings = () => {
   const [showSavedOnly, setShowSavedOnly] = useState(false);
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [savedIds, setSavedIds] = useState<Set<string>>(() => new Set());
+  const [savedMode, setSavedMode] = useState<"server" | "local">("local");
   const [highlightedIds, setHighlightedIds] = useState<Set<string>>(() => new Set());
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
   const [listingEvent] = useSyncedState<NewListingEvent | null>(null, NEW_LISTING_EVENT_KEY, LISTINGS_REALTIME_ROOM);
@@ -161,23 +162,87 @@ export const Listings = () => {
   }, []);
 
   useEffect(() => {
-    try {
-      const saved = window.localStorage.getItem(SAVED_STORAGE_KEY);
-      if (saved) {
-        setSavedIds(new Set(JSON.parse(saved) as string[]));
+    let cancelled = false;
+
+    void (async () => {
+      try {
+        const saved = await getSavedListingIds();
+        if (!cancelled) {
+          setSavedIds(new Set(saved));
+          setSavedMode("server");
+        }
+      } catch {
+        if (cancelled) {
+          return;
+        }
+
+        try {
+          const saved = window.localStorage.getItem(SAVED_STORAGE_KEY);
+          setSavedIds(saved ? new Set(JSON.parse(saved) as string[]) : new Set());
+        } catch {
+          setSavedIds(new Set());
+        }
+        setSavedMode("local");
       }
-    } catch {
-      setSavedIds(new Set());
-    }
+    })();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   useEffect(() => {
+    if (savedMode !== "local") {
+      return;
+    }
+
     try {
       window.localStorage.setItem(SAVED_STORAGE_KEY, JSON.stringify(Array.from(savedIds)));
     } catch {
       // Local storage is a best-effort browser enhancement.
     }
-  }, [savedIds]);
+  }, [savedIds, savedMode]);
+
+  const toggleSavedListing = useCallback(
+    (item: Listing) => {
+      const wasSaved = savedIds.has(item.id);
+      setSavedIds((current) => {
+        const next = new Set(current);
+        if (wasSaved) {
+          next.delete(item.id);
+        } else {
+          next.add(item.id);
+        }
+        return next;
+      });
+
+      if (savedMode !== "server") {
+        return;
+      }
+
+      void (async () => {
+        try {
+          if (wasSaved) {
+            await unsaveListing(item.id);
+          } else {
+            await saveListing(item.id);
+          }
+        } catch (saveError) {
+          setSavedIds((current) => {
+            const next = new Set(current);
+            if (wasSaved) {
+              next.add(item.id);
+            } else {
+              next.delete(item.id);
+            }
+            return next;
+          });
+          setError(saveError instanceof Error ? saveError.message : "Failed to update saved listing.");
+        }
+      })();
+    },
+    [savedIds, savedMode],
+  );
 
   useEffect(() => {
     let cancelled = false;
@@ -596,17 +661,7 @@ export const Listings = () => {
                     className={saved ? `${styles.saveButton} ${styles.saveButtonActive}` : styles.saveButton}
                     aria-pressed={saved}
                     aria-label={saved ? `Unsave ${item.title}` : `Save ${item.title}`}
-                    onClick={() => {
-                      setSavedIds((current) => {
-                        const next = new Set(current);
-                        if (next.has(item.id)) {
-                          next.delete(item.id);
-                        } else {
-                          next.add(item.id);
-                        }
-                        return next;
-                      });
-                    }}
+                    onClick={() => toggleSavedListing(item)}
                   >
                     {saved ? "Saved" : "Save"}
                   </button>

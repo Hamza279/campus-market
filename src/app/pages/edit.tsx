@@ -2,12 +2,15 @@
 
 import { useEffect, useState } from "react";
 import styles from "./edit.module.css";
-import { getImageUrlValidationError, getListingImageSrc, normalizeImageUrlForSave } from "./image-url";
-import { getListing, updateListing, Listing } from "./listings.data";
+import { getListingImageSrc } from "./image-url";
+import { createImageThumbnail, getImageFileValidationError, IMAGE_UPLOAD_ACCEPT } from "./image-upload";
+import { getListing, updateListing, Listing, uploadListingImage } from "./listings.data";
 
 interface EditProps {
   listingId: string;
 }
+
+type EditFormErrors = Partial<Record<"title" | "price" | "category", string>>;
 
 export const Edit = ({ listingId }: EditProps) => {
   const [listing, setListing] = useState<Listing | null>(null);
@@ -18,14 +21,19 @@ export const Edit = ({ listingId }: EditProps) => {
     condition: "",
     category: "",
     description: "",
-    image: "",
+    imageUrl: "",
+    imageKey: "",
+    thumbnailUrl: "",
+    thumbnailKey: "",
   });
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [fieldErrors, setFieldErrors] = useState<EditFormErrors>({});
   const [imageError, setImageError] = useState<string | null>(null);
   const [saving, setSaving] = useState(false);
-  const normalizedImageUrl = normalizeImageUrlForSave(form.image);
-  const previewImageUrl = getListingImageSrc(form.image);
+  const [uploadingImage, setUploadingImage] = useState(false);
+  const [uploadProgress, setUploadProgress] = useState(0);
+  const previewImageUrl = getListingImageSrc(form.thumbnailUrl || form.imageUrl);
 
   useEffect(() => {
     let cancelled = false;
@@ -42,7 +50,10 @@ export const Edit = ({ listingId }: EditProps) => {
             condition: item.condition,
             category: item.category,
             description: item.description,
-            image: item.image,
+            imageUrl: item.imageUrl,
+            imageKey: item.imageKey,
+            thumbnailUrl: item.thumbnailUrl,
+            thumbnailKey: item.thumbnailKey,
           });
         }
       } catch (loadError) {
@@ -64,8 +75,46 @@ export const Edit = ({ listingId }: EditProps) => {
   const handleChange = (event: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) => {
     const { name, value } = event.target;
     setForm((current) => ({ ...current, [name]: value }));
-    if (name === "image") {
-      setImageError(null);
+    setFieldErrors((current) => {
+      const key = name as keyof EditFormErrors;
+      if (!current[key]) {
+        return current;
+      }
+
+      const next = { ...current };
+      delete next[key];
+      return next;
+    });
+  };
+
+  const handleImageUpload = async (file: File) => {
+    const validationError = getImageFileValidationError(file);
+    if (validationError) {
+      setImageError(validationError);
+      setError("Please fix the highlighted fields.");
+      return;
+    }
+
+    setUploadingImage(true);
+    setUploadProgress(0);
+    setImageError(null);
+    setError(null);
+
+    try {
+      const thumbnail = await createImageThumbnail(file);
+      const uploaded = await uploadListingImage({ file, thumbnail, onProgress: setUploadProgress });
+      setForm((current) => ({
+        ...current,
+        imageUrl: uploaded.imageUrl,
+        imageKey: uploaded.imageKey,
+        thumbnailUrl: uploaded.thumbnailUrl,
+        thumbnailKey: uploaded.thumbnailKey,
+      }));
+      setUploadProgress(100);
+    } catch (uploadError) {
+      setError(uploadError instanceof Error ? uploadError.message : "Failed to upload image.");
+    } finally {
+      setUploadingImage(false);
     }
   };
 
@@ -73,9 +122,22 @@ export const Edit = ({ listingId }: EditProps) => {
     event.preventDefault();
     if (!listing) return;
 
-    const nextImageError = getImageUrlValidationError(form.image);
+    const numericPrice = Number.parseFloat(form.price.replace(/[^0-9.]/g, ""));
+    const nextFieldErrors: EditFormErrors = {};
+    if (!form.title.trim()) {
+      nextFieldErrors.title = "Title is required.";
+    }
+    if (!form.price.trim() || !Number.isFinite(numericPrice) || numericPrice < 0) {
+      nextFieldErrors.price = "Enter a valid price.";
+    }
+    if (!form.category.trim()) {
+      nextFieldErrors.category = "Category is required.";
+    }
+
+    const nextImageError = !form.imageUrl || !form.imageKey || !form.thumbnailUrl || !form.thumbnailKey ? "Upload an item image." : null;
+    setFieldErrors(nextFieldErrors);
     setImageError(nextImageError);
-    if (nextImageError) {
+    if (nextImageError || Object.keys(nextFieldErrors).length > 0) {
       setError("Please fix the highlighted fields.");
       return;
     }
@@ -92,7 +154,11 @@ export const Edit = ({ listingId }: EditProps) => {
         condition: form.condition,
         category: form.category,
         description: form.description,
-        image: normalizedImageUrl,
+        image: form.imageUrl,
+        imageUrl: form.imageUrl,
+        imageKey: form.imageKey,
+        thumbnailUrl: form.thumbnailUrl,
+        thumbnailKey: form.thumbnailKey,
       });
 
       if (updated) {
@@ -145,7 +211,9 @@ export const Edit = ({ listingId }: EditProps) => {
             type="text"
             value={form.title}
             onChange={handleChange}
+            aria-invalid={fieldErrors.title ? "true" : "false"}
           />
+          {fieldErrors.title ? <p className={styles.fieldError}>{fieldErrors.title}</p> : null}
         </div>
 
         <div className={styles.formRowGroup}>
@@ -157,7 +225,9 @@ export const Edit = ({ listingId }: EditProps) => {
               type="text"
               value={form.price}
               onChange={handleChange}
+              aria-invalid={fieldErrors.price ? "true" : "false"}
             />
+            {fieldErrors.price ? <p className={styles.fieldError}>{fieldErrors.price}</p> : null}
           </div>
           <div className={styles.formRowHalf}>
             <label htmlFor="location">Location</label>
@@ -190,7 +260,9 @@ export const Edit = ({ listingId }: EditProps) => {
             type="text"
             value={form.category}
             onChange={handleChange}
+            aria-invalid={fieldErrors.category ? "true" : "false"}
           />
+          {fieldErrors.category ? <p className={styles.fieldError}>{fieldErrors.category}</p> : null}
         </div>
 
         <div className={styles.formRow}>
@@ -205,23 +277,29 @@ export const Edit = ({ listingId }: EditProps) => {
         </div>
 
         <div className={styles.formRow}>
-          <label htmlFor="image">Image placeholder</label>
+          <label htmlFor="imageUpload">Item image</label>
           <input
-            id="image"
-            name="image"
-            type="text"
-            value={form.image}
-            onChange={handleChange}
+            id="imageUpload"
+            name="imageUpload"
+            type="file"
+            accept={IMAGE_UPLOAD_ACCEPT}
+            onChange={(event) => {
+              const file = event.target.files?.[0];
+              if (file) {
+                void handleImageUpload(file);
+              }
+            }}
             aria-invalid={imageError ? "true" : "false"}
           />
           {imageError ? <p className={styles.fieldError}>{imageError}</p> : null}
+          {uploadingImage || uploadProgress > 0 ? <p>{uploadingImage ? `Uploading image ${uploadProgress}%` : "Image uploaded."}</p> : null}
           <div className={styles.imagePlaceholder}>
             <img src={previewImageUrl} alt="Listing preview" className={styles.imagePreview} />
           </div>
         </div>
 
         <div className={styles.formActions}>
-          <button type="submit" className={styles.submitButton}>
+          <button type="submit" className={styles.submitButton} disabled={saving || uploadingImage}>
             {saving ? "Saving..." : "Save changes"}
           </button>
           {listing ? (

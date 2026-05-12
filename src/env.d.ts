@@ -1,4 +1,6 @@
 interface Env {
+  campusmarket_db: D1Database;
+  LISTING_IMAGES: R2Bucket;
   SESSION_DURABLE_OBJECT: DurableObjectNamespace<import("@/session/durableObject").SessionDurableObject>;
   AUTH_SECRET_KEY?: string;
   AUTH_SECRET?: string;

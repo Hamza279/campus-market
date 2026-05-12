@@ -20,6 +20,7 @@
     "release": "rw-scripts ensure-deploy-env && npm run clean && npm run deploy",
     "generate": "rw-scripts ensure-env && wrangler types --include-runtime false",
     "check": "npm run generate && npm run types",
+    "smoke": "node scripts/smoke-marketplace.mjs",
     "types": "tsc"
   },
   "dependencies": {

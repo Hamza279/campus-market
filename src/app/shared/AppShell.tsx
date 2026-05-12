@@ -43,7 +43,7 @@ const navItems: NavItem[] = [
   {
     label: "Messages",
     href: "/messages",
-    match: (pathname) => pathname === "/messages",
+    match: (pathname) => pathname === "/messages" || pathname.startsWith("/messages/"),
   },
   {
     label: "Saved Items",

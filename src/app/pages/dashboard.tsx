@@ -120,7 +120,7 @@ export const Dashboard = () => {
     setSavingIds((current) => new Set(current).add(id));
 
     try {
-      const updated = await updateListing({ ...item, sold: true });
+      const updated = await updateListing({ ...item, sold: true, status: "sold" });
       if (updated) {
         setItems((current) => current.map((listing) => (listing.id === id ? updated : listing)));
       }

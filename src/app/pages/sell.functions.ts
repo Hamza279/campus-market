@@ -11,6 +11,11 @@ interface ListingPayload {
   category?: string;
   description: string;
   image: string;
+  imageUrl?: string;
+  imageKey?: string;
+  thumbnailUrl?: string;
+  thumbnailKey?: string;
+  status?: "active" | "sold" | "draft";
 }
 
 const parseResponse = async <T>(response: Response): Promise<T> => {

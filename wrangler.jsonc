@@ -32,6 +32,13 @@
 			"database_id": "8dadff29-3824-445e-9d1a-e7576c15304b"
 		}
 	],
+	"r2_buckets": [
+		{
+			"binding": "LISTING_IMAGES",
+			"bucket_name": "campusmarket-listing-images",
+			"preview_bucket_name": "campusmarket-listing-images-preview"
+		}
+	],
 	"durable_objects": {
 		"bindings": [
 			{

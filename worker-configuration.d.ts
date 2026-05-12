@@ -7,6 +7,7 @@ declare namespace Cloudflare {
 	}
 	interface Env {
 		campusmarket_db: D1Database;
+		LISTING_IMAGES: R2Bucket;
 		ASSETS: Fetcher;
 		APP_URL: "https://campus-market.hamzaalkasasbeh96.workers.dev";
 		SYNCED_STATE_SERVER: DurableObjectNamespace<import("./src/worker").SyncedStateServer>;

@@ -7,9 +7,16 @@ export interface Listing {
   category: string;
   description: string;
   image: string;
+  imageUrl: string;
+  imageKey: string;
+  thumbnailUrl: string;
+  thumbnailKey: string;
   sold: boolean;
+  status: "active" | "sold" | "draft";
   isSeeded: boolean;
   ownerId: string;
+  sellerId: string;
+  sellerEmail: string;
   sellerName: string;
   createdAt?: string;
   updatedAt?: string;
@@ -23,9 +30,15 @@ interface ListingPayload {
   category?: string;
   description: string;
   image: string;
+  imageUrl?: string;
+  imageKey?: string;
+  thumbnailUrl?: string;
+  thumbnailKey?: string;
+  status?: "active" | "sold" | "draft";
 }
 
 const API_BASE = "/api/listings";
+const SAVED_API_BASE = "/api/saved-listings";
 
 const logFetchRequest = (method: string, url: string) => {
   console.info("[listings.data] fetch", { method, url });
@@ -134,7 +147,7 @@ export const updateListing = async (listing: Listing): Promise<Listing | undefin
 };
 
 export const canManageListing = (item: Listing): boolean => {
-  return !item.isSeeded;
+  return Boolean(item.ownerId || item.sellerId || item.sellerEmail);
 };
 
 export const deleteListing = async (id: string): Promise<boolean> => {
@@ -167,7 +180,53 @@ export const addListing = async (listing: ListingPayload): Promise<Listing> => {
   return parseResponse<Listing>(response);
 };
 
-export const contactSeller = async (id: string, message: string): Promise<void> => {
+export const getSavedListingIds = async (): Promise<string[]> => {
+  const response = await fetchWithDebug(SAVED_API_BASE, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  return parseResponse<string[]>(response);
+};
+
+export const getSavedListings = async (): Promise<Listing[]> => {
+  const response = await fetchWithDebug(`${SAVED_API_BASE}?includeListings=1`, {
+    method: "GET",
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  return parseResponse<Listing[]>(response);
+};
+
+export const saveListing = async (id: string): Promise<void> => {
+  const response = await fetchWithDebug(SAVED_API_BASE, {
+    method: "POST",
+    headers: {
+      "Content-Type": "application/json",
+      Accept: "application/json",
+    },
+    body: JSON.stringify({ listingId: id }),
+  });
+
+  await parseResponse<{ ok: boolean }>(response);
+};
+
+export const unsaveListing = async (id: string): Promise<void> => {
+  const response = await fetchWithDebug(`${SAVED_API_BASE}/${id}`, {
+    method: "DELETE",
+    headers: {
+      Accept: "application/json",
+    },
+  });
+
+  await parseResponse<{ ok: boolean }>(response);
+};
+
+export const contactSeller = async (id: string, message: string): Promise<{ conversationId: string }> => {
   const url = `${API_BASE}/${id}/contact`;
   const response = await fetchWithDebug(url, {
     method: "POST",
@@ -178,7 +237,7 @@ export const contactSeller = async (id: string, message: string): Promise<void> 
     body: JSON.stringify({ message }),
   });
 
-  await parseResponse<{ ok: boolean }>(response);
+  return parseResponse<{ conversationId: string }>(response);
 };
 
 export const reportListing = async (id: string, reason: string): Promise<void> => {
@@ -193,4 +252,59 @@ export const reportListing = async (id: string, reason: string): Promise<void> =
   });
 
   await parseResponse<{ ok: boolean }>(response);
+};
+
+export interface UploadedListingImage {
+  imageUrl: string;
+  imageKey: string;
+  thumbnailUrl: string;
+  thumbnailKey: string;
+}
+
+export interface UploadListingImageOptions {
+  file: File;
+  thumbnail: Blob;
+  onProgress?: (progress: number) => void;
+}
+
+export const uploadListingImage = ({ file, thumbnail, onProgress }: UploadListingImageOptions): Promise<UploadedListingImage> => {
+  const formData = new FormData();
+  formData.set("image", file);
+  formData.set("thumbnail", thumbnail, "thumbnail.webp");
+
+  return new Promise((resolve, reject) => {
+    const request = new XMLHttpRequest();
+    request.open("POST", "/api/uploads/listing-image");
+    request.setRequestHeader("Accept", "application/json");
+
+    request.upload.onprogress = (event) => {
+      if (!event.lengthComputable || !onProgress) {
+        return;
+      }
+
+      onProgress(Math.round((event.loaded / event.total) * 100));
+    };
+
+    request.onerror = () => reject(new Error("Image upload failed."));
+    request.onload = () => {
+      const responseText = request.responseText || "{}";
+      if (request.status < 200 || request.status >= 300) {
+        try {
+          const data = JSON.parse(responseText) as { error?: string };
+          reject(new Error(data.error || "Image upload failed."));
+        } catch {
+          reject(new Error(responseText || "Image upload failed."));
+        }
+        return;
+      }
+
+      try {
+        resolve(JSON.parse(responseText) as UploadedListingImage);
+      } catch {
+        reject(new Error("Invalid upload response."));
+      }
+    };
+
+    request.send(formData);
+  });
 };

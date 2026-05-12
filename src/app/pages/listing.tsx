@@ -40,6 +40,9 @@ export const ListingDetail = ({ listingId }: ListingDetailProps) => {
   const [error, setError] = useState<string | null>(null);
   const [contactMessage, setContactMessage] = useState("Hi, is this still available?");
   const [contactStatus, setContactStatus] = useState<string | null>(null);
+  const [contactConversationId, setContactConversationId] = useState<string | null>(null);
+  const [sendingMessage, setSendingMessage] = useState(false);
+  const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [reportStatus, setReportStatus] = useState<string | null>(null);
 
   useEffect(() => {
@@ -67,6 +70,15 @@ export const ListingDetail = ({ listingId }: ListingDetailProps) => {
       cancelled = true;
     };
   }, [listingId]);
+
+  useEffect(() => {
+    if (!toastMessage) {
+      return;
+    }
+
+    const timeout = window.setTimeout(() => setToastMessage(null), 2600);
+    return () => window.clearTimeout(timeout);
+  }, [toastMessage]);
 
   if (!loaded) {
     return (
@@ -101,11 +113,20 @@ export const ListingDetail = ({ listingId }: ListingDetailProps) => {
     .slice(0, 3);
 
   const handleContactSeller = async () => {
+    setSendingMessage(true);
+    setContactStatus(null);
+    setToastMessage(null);
     try {
-      await contactSeller(listing.id, contactMessage);
-      setContactStatus("Message sent to seller placeholder.");
+      const result = await contactSeller(listing.id, contactMessage);
+      setContactConversationId(result.conversationId);
+      setContactStatus("Message sent.");
+      setToastMessage("Message sent");
     } catch (contactError) {
-      setContactStatus(contactError instanceof Error ? contactError.message : "Failed to send message.");
+      const message = contactError instanceof Error ? contactError.message : "Failed to send message.";
+      setContactStatus(message);
+      setToastMessage(message);
+    } finally {
+      setSendingMessage(false);
     }
   };
 
@@ -183,7 +204,7 @@ export const ListingDetail = ({ listingId }: ListingDetailProps) => {
             <div>
               <h2 className={styles.sectionTitle}>Seller</h2>
               <p className={styles.sellerName}>{listing.sellerName}</p>
-              <p className={styles.sellerMeta}>Student seller placeholder</p>
+              <p className={styles.sellerMeta}>Student seller</p>
               <a href={`/seller/${listing.ownerId}`} className={styles.sellerLink}>
                 View seller profile
               </a>
@@ -195,10 +216,20 @@ export const ListingDetail = ({ listingId }: ListingDetailProps) => {
                 rows={3}
                 aria-label="Message seller"
               />
-              <button type="button" className={styles.contactButton} onClick={() => void handleContactSeller()}>
-                Contact Seller
+              <button
+                type="button"
+                className={styles.contactButton}
+                onClick={() => void handleContactSeller()}
+                disabled={sendingMessage}
+              >
+                {sendingMessage ? "Sending..." : "Contact Seller"}
               </button>
               {contactStatus ? <p className={styles.actionStatus}>{contactStatus}</p> : null}
+              {contactConversationId ? (
+                <a href={`/messages/${contactConversationId}`} className={styles.messageLink}>
+                  Open conversation
+                </a>
+              ) : null}
             </div>
           </div>
 
@@ -234,6 +265,12 @@ export const ListingDetail = ({ listingId }: ListingDetailProps) => {
           ))}
         </div>
       </section>
+
+      {toastMessage ? (
+        <div className={styles.toast} role="status" aria-live="polite">
+          {toastMessage}
+        </div>
+      ) : null}
     </div>
   );
 };
