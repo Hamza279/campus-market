@@ -1,0 +1,78 @@
+.frame {
+  position: relative;
+  overflow: hidden;
+  background: linear-gradient(135deg, #ffe9cb, #ffd5bf);
+}
+
+.image {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: cover;
+  transition: transform 260ms ease;
+}
+
+.frame:hover .image {
+  transform: scale(1.03);
+}
+
+.overlay {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, rgba(45, 34, 24, 0.02), rgba(45, 34, 24, 0.45));
+  pointer-events: none;
+}
+
+.linkOverlay {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+}
+
+.controls {
+  position: absolute;
+  inset: auto 0.75rem 0.75rem auto;
+  z-index: 2;
+  display: flex;
+  gap: 0.4rem;
+}
+
+.controlButton {
+  display: inline-grid;
+  place-items: center;
+  width: 2rem;
+  height: 2rem;
+  border: 1px solid rgba(255, 255, 255, 0.36);
+  border-radius: 999px;
+  background: rgba(255, 251, 246, 0.9);
+  color: #2d2218;
+  font: inherit;
+  font-size: 1rem;
+  font-weight: 900;
+  box-shadow: 0 8px 16px rgba(68, 52, 35, 0.18);
+  cursor: pointer;
+}
+
+.dots {
+  position: absolute;
+  inset: auto 0.75rem 0.75rem 0.75rem;
+  z-index: 2;
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+}
+
+.dot {
+  width: 0.42rem;
+  height: 0.42rem;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.46);
+  cursor: pointer;
+}
+
+.dotActive {
+  width: 1rem;
+  background: rgba(255, 251, 246, 0.95);
+}
+

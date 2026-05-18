@@ -4,33 +4,13 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { initSyncedStateClient, useSyncedState } from "rwsdk/use-synced-state/client";
 import styles from "./listings.module.css";
 import { ListingCard } from "@/app/shared/ListingCard";
-import { getListings, getSavedListingIds, Listing, saveListing, unsaveListing } from "./listings.data";
+import { useListingFeed } from "./listing-feed";
+import { getSavedListingIds, Listing, saveListing, unsaveListing } from "./listings.data";
 import { LISTINGS_REALTIME_ROOM, NEW_LISTING_EVENT_KEY, type NewListingEvent } from "./listings.realtime";
 
 type SortOption = "newest" | "price-asc" | "price-desc";
-const PAGE_SIZE = 6;
 const SAVED_STORAGE_KEY = "campus-market-saved-listings";
 const MAX_PROCESSED_EVENT_IDS = 100;
-
-const dedupeAndSortListings = (listings: Listing[]): Listing[] => {
-  const uniqueListings = new Map<string, Listing>();
-
-  for (const listing of listings) {
-    const existing = uniqueListings.get(listing.id);
-    if (!existing || getListingTime(listing) >= getListingTime(existing)) {
-      uniqueListings.set(listing.id, listing);
-    }
-  }
-
-  return Array.from(uniqueListings.values()).sort((a, b) => {
-    const timeDifference = getListingTime(b) - getListingTime(a);
-    if (timeDifference !== 0) {
-      return timeDifference;
-    }
-
-    return b.id.localeCompare(a.id);
-  });
-};
 
 const parsePrice = (price: string): number => {
   const parsed = Number.parseFloat(price.replace(/[^0-9.]/g, ""));
@@ -71,8 +51,6 @@ const getPostedLabel = (listing: Listing): string => {
 };
 
 export const Listings = () => {
-  const [items, setItems] = useState<Listing[]>([]);
-  const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
   const [toastMessage, setToastMessage] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
@@ -84,28 +62,19 @@ export const Listings = () => {
   const [sortOption, setSortOption] = useState<SortOption>("newest");
   const [hideSold, setHideSold] = useState(false);
   const [showSavedOnly, setShowSavedOnly] = useState(false);
-  const [visibleCount, setVisibleCount] = useState(PAGE_SIZE);
   const [savedIds, setSavedIds] = useState<Set<string>>(() => new Set());
   const [savedMode, setSavedMode] = useState<"server" | "local">("local");
   const [highlightedIds, setHighlightedIds] = useState<Set<string>>(() => new Set());
+  const [flashSavedIds, setFlashSavedIds] = useState<Set<string>>(() => new Set());
   const [isRealtimeConnected, setIsRealtimeConnected] = useState(false);
   const [listingEvent] = useSyncedState<NewListingEvent | null>(null, NEW_LISTING_EVENT_KEY, LISTINGS_REALTIME_ROOM);
   const processedEventIdsRef = useRef<string[]>([]);
   const mountedAtRef = useRef(Date.now());
   const toastTimeoutRef = useRef<number | null>(null);
   const highlightTimeoutsRef = useRef<Map<string, number>>(new Map());
-
-  const loadListings = useCallback(async () => {
-    try {
-      const listings = await getListings();
-      setItems(dedupeAndSortListings(listings));
-      setError(null);
-    } catch (loadError) {
-      setError(loadError instanceof Error ? loadError.message : "Failed to load listings.");
-    } finally {
-      setIsLoading(false);
-    }
-  }, []);
+  const flashTimeoutsRef = useRef<Map<string, number>>(new Map());
+  const loadMoreRef = useRef<HTMLDivElement>(null);
+  const { items, isLoading, isLoadingMore, hasMore, error: feedError, loadMore, refresh } = useListingFeed({ pageSize: 8 });
 
   const showNewListingToast = useCallback(() => {
     if (toastTimeoutRef.current !== null) {
@@ -215,6 +184,28 @@ export const Listings = () => {
         }
         return next;
       });
+      setFlashSavedIds((current) => new Set(current).add(item.id));
+
+      const existingTimeout = flashTimeoutsRef.current.get(item.id);
+      if (existingTimeout !== undefined) {
+        window.clearTimeout(existingTimeout);
+      }
+
+      flashTimeoutsRef.current.set(
+        item.id,
+        window.setTimeout(() => {
+          setFlashSavedIds((current) => {
+            if (!current.has(item.id)) {
+              return current;
+            }
+
+            const next = new Set(current);
+            next.delete(item.id);
+            return next;
+          });
+          flashTimeoutsRef.current.delete(item.id);
+        }, 220),
+      );
 
       if (savedMode !== "server") {
         return;
@@ -245,27 +236,18 @@ export const Listings = () => {
   );
 
   useEffect(() => {
-    let cancelled = false;
-
-    void (async () => {
-      if (!cancelled) {
-        await loadListings();
-      }
-    })();
-
     const refreshOnReturn = () => {
-      void loadListings();
+      refresh();
     };
 
     window.addEventListener("focus", refreshOnReturn);
     window.addEventListener("pageshow", refreshOnReturn);
 
     return () => {
-      cancelled = true;
       window.removeEventListener("focus", refreshOnReturn);
       window.removeEventListener("pageshow", refreshOnReturn);
     };
-  }, [loadListings]);
+  }, [refresh]);
 
   useEffect(() => {
     let disposed = false;
@@ -312,6 +294,11 @@ export const Listings = () => {
         window.clearTimeout(timeoutId);
       });
       highlightTimeoutsRef.current.clear();
+
+      flashTimeoutsRef.current.forEach((timeoutId) => {
+        window.clearTimeout(timeoutId);
+      });
+      flashTimeoutsRef.current.clear();
     };
   }, []);
 
@@ -342,8 +329,8 @@ export const Listings = () => {
     setIsRealtimeConnected(true);
     showNewListingToast();
     highlightListing(listingEvent.listingId);
-    void loadListings();
-  }, [highlightListing, listingEvent, loadListings, showNewListingToast]);
+    refresh();
+  }, [highlightListing, listingEvent, refresh, showNewListingToast]);
 
   const locations = useMemo(() => {
     return Array.from(new Set(items.map((item) => item.location).filter(Boolean))).sort((a, b) =>
@@ -363,6 +350,12 @@ export const Listings = () => {
     );
   }, [items]);
 
+  const nearbyLocations = useMemo(() => {
+    return Array.from(new Set(items.map((item) => item.meetupArea || item.location).filter(Boolean))).sort((a, b) =>
+      a.localeCompare(b),
+    );
+  }, [items]);
+
   const filteredItems = useMemo(() => {
     const normalizedSearch = searchQuery.trim().toLowerCase();
     const min = minPrice.trim() === "" ? null : Number.parseFloat(minPrice);
@@ -370,14 +363,14 @@ export const Listings = () => {
 
     return items
       .filter((item) => {
-        const searchable = `${item.title} ${item.description} ${item.category} ${item.condition} ${item.location} ${item.sellerName}`.toLowerCase();
+        const searchable = `${item.title} ${item.description} ${item.category} ${item.condition} ${item.location} ${item.meetupArea} ${item.sellerName}`.toLowerCase();
         const itemPrice = parsePrice(item.price);
 
         if (normalizedSearch && !searchable.includes(normalizedSearch)) {
           return false;
         }
 
-        if (locationFilter && item.location !== locationFilter) {
+        if (locationFilter && item.location !== locationFilter && item.meetupArea !== locationFilter) {
           return false;
         }
 
@@ -432,13 +425,32 @@ export const Listings = () => {
     sortOption,
   ]);
 
-  const visibleItems = filteredItems.slice(0, visibleCount);
   const activeListings = items.filter((item) => !item.sold);
   const featuredItems = activeListings.slice(0, 3);
+  useEffect(() => {
+    const target = loadMoreRef.current;
+    if (!target || !hasMore) {
+      return;
+    }
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting) && !isLoadingMore) {
+          loadMore();
+        }
+      },
+      { rootMargin: "450px 0px" },
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [hasMore, isLoadingMore, loadMore]);
 
   useEffect(() => {
-    setVisibleCount(PAGE_SIZE);
-  }, [categoryFilter, conditionFilter, hideSold, locationFilter, maxPrice, minPrice, searchQuery, showSavedOnly, sortOption]);
+    if (!isLoading && filteredItems.length === 0 && hasMore && !isLoadingMore) {
+      loadMore();
+    }
+  }, [filteredItems.length, hasMore, isLoading, isLoadingMore, loadMore]);
 
   return (
     <div className={styles.page}>
@@ -501,7 +513,7 @@ export const Listings = () => {
         </section>
       ) : null}
 
-      {error ? <p className={styles.errorMessage}>{error}</p> : null}
+      {error || feedError ? <p className={styles.errorMessage}>{error ?? feedError}</p> : null}
 
       {categories.length > 0 ? (
         <section className={styles.categoryChipsSection} aria-label="Browse by category">
@@ -521,6 +533,36 @@ export const Listings = () => {
                 onClick={() => setCategoryFilter(category)}
               >
                 {category}
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
+      {nearbyLocations.length > 0 ? (
+        <section className={styles.categoryChipsSection} aria-label="Nearby meetup areas">
+          <div className={styles.sectionHeaderRow}>
+            <div className={styles.sectionHeader}>
+              <p className={styles.eyebrow}>Nearby areas</p>
+              <h2 className={styles.sectionTitle}>Filter by meetup area.</h2>
+            </div>
+          </div>
+          <div className={styles.categoryChips}>
+            <button
+              type="button"
+              className={!locationFilter ? `${styles.categoryChip} ${styles.categoryChipActive}` : styles.categoryChip}
+              onClick={() => setLocationFilter("")}
+            >
+              Anywhere
+            </button>
+            {nearbyLocations.map((location) => (
+              <button
+                type="button"
+                key={location}
+                className={locationFilter === location ? `${styles.categoryChip} ${styles.categoryChipActive}` : styles.categoryChip}
+                onClick={() => setLocationFilter(location)}
+              >
+                {location}
               </button>
             ))}
           </div>
@@ -668,7 +710,7 @@ export const Listings = () => {
         </div>
       ) : (
         <div className={styles.grid}>
-          {visibleItems.map((item, index) => {
+          {filteredItems.map((item, index) => {
             const saved = savedIds.has(item.id);
 
             return (
@@ -682,7 +724,13 @@ export const Listings = () => {
                 topAction={
                   <button
                     type="button"
-                    className={saved ? `${styles.saveButton} ${styles.saveButtonActive}` : styles.saveButton}
+                    className={
+                      saved
+                        ? `${styles.saveButton} ${styles.saveButtonActive} ${flashSavedIds.has(item.id) ? styles.saveButtonFlash : ""}`
+                        : flashSavedIds.has(item.id)
+                          ? `${styles.saveButton} ${styles.saveButtonFlash}`
+                          : styles.saveButton
+                    }
                     aria-pressed={saved}
                     aria-label={saved ? `Unsave ${item.title}` : `Save ${item.title}`}
                     onClick={() => toggleSavedListing(item)}
@@ -696,13 +744,8 @@ export const Listings = () => {
         </div>
       )}
 
-      {!isLoading && visibleCount < filteredItems.length ? (
-        <div className={styles.loadMoreRow}>
-          <button type="button" className={styles.loadMoreButton} onClick={() => setVisibleCount((count) => count + PAGE_SIZE)}>
-            Load more
-          </button>
-        </div>
-      ) : null}
+      <div ref={loadMoreRef} className={styles.feedSentinel} aria-hidden="true" />
+      {isLoadingMore ? <p className={styles.feedStatus}>Loading more listings…</p> : null}
     </div>
   );
 };

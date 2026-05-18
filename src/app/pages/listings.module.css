@@ -139,6 +139,26 @@
   margin-bottom: 1rem;
 }
 
+.sectionHeaderRow {
+  display: flex;
+  align-items: end;
+  justify-content: space-between;
+  gap: 1rem;
+  margin-bottom: 0.75rem;
+}
+
+.sectionHeader {
+  display: grid;
+  gap: 0.35rem;
+}
+
+.sectionTitle {
+  margin: 0;
+  color: #2d2218;
+  font-size: 1.15rem;
+  line-height: 1.2;
+}
+
 .categoryChips {
   display: flex;
   gap: 0.65rem;
@@ -475,6 +495,21 @@
   color: #a95426;
 }
 
+.saveButtonFlash {
+  animation: savePulse 220ms ease;
+}
+
+.feedSentinel {
+  height: 1px;
+}
+
+.feedStatus {
+  margin: 1rem 0 0;
+  color: #705a46;
+  font-weight: 700;
+  text-align: center;
+}
+
 .loadMoreRow {
   display: flex;
   justify-content: center;
@@ -594,6 +629,20 @@
 @keyframes shimmer {
   to {
     transform: translateX(100%);
+  }
+}
+
+@keyframes savePulse {
+  0% {
+    transform: scale(1);
+  }
+
+  50% {
+    transform: scale(1.06);
+  }
+
+  100% {
+    transform: scale(1);
   }
 }
 

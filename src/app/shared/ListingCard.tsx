@@ -1,7 +1,7 @@
 "use client";
 
-import { getListingImageSrc } from "@/app/pages/image-url";
 import type { Listing } from "@/app/pages/listings.data";
+import { ListingMediaCarousel } from "./ListingMediaCarousel";
 import styles from "./ListingCard.module.css";
 
 interface ListingCardProps {
@@ -29,7 +29,7 @@ export const ListingCard = ({
   highlighted = false,
   featuredLabel,
 }: ListingCardProps) => {
-  const imageUrl = getListingImageSrc(listing.thumbnailUrl || listing.imageUrl || listing.image);
+  const images = listing.galleryUrls.length > 0 ? listing.galleryUrls : [listing.thumbnailUrl || listing.imageUrl || listing.image];
   const resolvedStatusLabel = statusLabel ?? (listing.sold ? "Sold" : undefined);
   const resolvedStatusTone = statusTone ?? (listing.sold ? "sold" : "active");
   const sellerHref = listing.ownerId ? `/seller/${listing.ownerId}` : undefined;
@@ -43,12 +43,21 @@ export const ListingCard = ({
 
   return (
     <article className={cardClassName}>
-      <a href={href} className={styles.imageLink} aria-label={`View ${listing.title}`}>
-        <img src={imageUrl} alt={listing.title} className={styles.image} loading="lazy" />
-        <span className={styles.imageOverlay} />
+      <div className={styles.imageLink} aria-label={`View ${listing.title}`}>
+        <ListingMediaCarousel
+          href={href}
+          images={images}
+          alt={listing.title}
+          className={styles.mediaFrame}
+          imageClassName={styles.image}
+          overlayClassName={styles.imageOverlay}
+          controlsClassName={styles.imageControls}
+          dotsClassName={styles.imageDots}
+          linkLabel={`View ${listing.title}`}
+        />
         <span className={styles.pricePill}>{listing.price}</span>
         {featuredLabel ? <span className={styles.featuredPill}>{featuredLabel}</span> : null}
-      </a>
+      </div>
 
       <div className={styles.body}>
         <div className={styles.header}>
@@ -76,8 +85,8 @@ export const ListingCard = ({
 
         <dl className={styles.metaGrid}>
           <div>
-            <dt>Pickup</dt>
-            <dd>{listing.location}</dd>
+            <dt>Meetup</dt>
+            <dd>{listing.meetupArea || listing.location}</dd>
           </div>
           <div>
             <dt>Seller</dt>

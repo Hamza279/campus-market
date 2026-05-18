@@ -43,19 +43,12 @@ const navItems: NavItem[] = [
     match: (pathname) => pathname === "/sell",
   },
   {
-    label: "Dashboard",
-    mobileLabel: "Selling Hub",
-    shortLabel: "Hub",
+    label: "Account",
+    mobileLabel: "Account",
+    shortLabel: "Account",
     icon: "Hub",
     href: "/dashboard",
-    match: (pathname) => pathname === "/dashboard" || pathname.startsWith("/edit/"),
-  },
-  {
-    label: "Profile",
-    shortLabel: "Profile",
-    icon: "Profile",
-    href: "/profile",
-    match: (pathname) => pathname === "/profile",
+    match: (pathname) => pathname === "/dashboard" || pathname === "/profile" || pathname.startsWith("/edit/"),
   },
   {
     label: "Messages",
@@ -214,9 +207,7 @@ export const AppShell = ({ children, currentUser = null }: AppShellProps) => {
     );
   };
 
-  const mobileTabs = currentUser
-    ? navItems.filter((item) => ["/", "/listings", "/sell", "/messages", "/profile"].includes(item.href))
-    : navItems.filter((item) => ["/", "/listings", "/sell", "/messages", "/profile"].includes(item.href));
+  const mobileTabs = navItems.filter((item) => ["/", "/listings", "/sell", "/messages", "/dashboard"].includes(item.href));
 
   return (
     <div className={styles.shell}>

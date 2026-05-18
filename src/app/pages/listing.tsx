@@ -1,9 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ListingMediaCarousel } from "@/app/shared/ListingMediaCarousel";
 import styles from "./listing.module.css";
-import { getListingImageSrc } from "./image-url";
 import { contactSeller, getListing, getListings, Listing, reportListing } from "./listings.data";
+import { recordRecentlyViewedListing } from "./recently-viewed";
 
 interface ListingDetailProps {
   listingId: string;
@@ -72,6 +73,12 @@ export const ListingDetail = ({ listingId }: ListingDetailProps) => {
   }, [listingId]);
 
   useEffect(() => {
+    if (listing) {
+      recordRecentlyViewedListing(listing);
+    }
+  }, [listing]);
+
+  useEffect(() => {
     if (!toastMessage) {
       return;
     }
@@ -106,7 +113,7 @@ export const ListingDetail = ({ listingId }: ListingDetailProps) => {
     );
   }
 
-  const imageUrl = getListingImageSrc(listing.image);
+  const galleryImages = listing.galleryUrls.length > 0 ? listing.galleryUrls : [listing.thumbnailUrl || listing.imageUrl || listing.image];
   const recentListings = allListings.filter((item) => item.id !== listing.id).slice(0, 3);
   const similarListings = allListings
     .filter((item) => item.id !== listing.id && item.category === listing.category)
@@ -154,12 +161,13 @@ export const ListingDetail = ({ listingId }: ListingDetailProps) => {
 
       <div className={styles.detailGrid}>
         <div className={styles.imageFrame}>
-          <img src={imageUrl} alt={listing.title} className={styles.listingImage} />
+          <ListingMediaCarousel images={galleryImages} alt={listing.title} className={styles.galleryFrame} imageClassName={styles.listingImage} controlsClassName={styles.galleryControls} dotsClassName={styles.galleryDots} />
         </div>
 
         <div className={styles.detailBody}>
           <div className={styles.badgeRow}>
             <span className={styles.badge}>{listing.location}</span>
+            {listing.meetupArea && listing.meetupArea !== listing.location ? <span className={styles.badge}>{listing.meetupArea}</span> : null}
             <span className={styles.badge}>{listing.category}</span>
             <span className={styles.badge}>{listing.condition}</span>
             {listing.sold ? <span className={styles.soldBadge}>Sold</span> : null}
@@ -180,6 +188,10 @@ export const ListingDetail = ({ listingId }: ListingDetailProps) => {
               <li>
                 <strong>Location</strong>
                 <span>{listing.location}</span>
+              </li>
+              <li>
+                <strong>Meetup</strong>
+                <span>{listing.meetupArea || listing.location}</span>
               </li>
               <li>
                 <strong>Category</strong>

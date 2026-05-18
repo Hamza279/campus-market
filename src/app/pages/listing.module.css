@@ -54,9 +54,13 @@
 .imageFrame {
   min-height: 420px;
   border-radius: 1.25rem;
-  background: #eff6ff;
+  background: linear-gradient(135deg, #ffe9cb, #ffd5bf);
   overflow: hidden;
   box-shadow: 0 20px 40px rgba(15, 23, 42, 0.08);
+}
+
+.galleryFrame {
+  height: 100%;
 }
 
 .listingImage {
@@ -65,6 +69,14 @@
   min-height: 420px;
   display: block;
   object-fit: cover;
+}
+
+.galleryControls {
+  inset: auto 1rem 1rem auto;
+}
+
+.galleryDots {
+  inset: auto 1rem 1rem 1rem;
 }
 
 .imagePlaceholderLarge {

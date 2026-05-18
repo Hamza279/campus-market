@@ -3,6 +3,7 @@ export interface Listing {
   title: string;
   price: string;
   location: string;
+  meetupArea: string;
   condition: string;
   category: string;
   description: string;
@@ -11,6 +12,10 @@ export interface Listing {
   imageKey: string;
   thumbnailUrl: string;
   thumbnailKey: string;
+  galleryUrls: string[];
+  galleryThumbnailUrls: string[];
+  galleryKeys: string[];
+  galleryThumbnailKeys: string[];
   sold: boolean;
   status: "active" | "sold" | "draft";
   isSeeded: boolean;
@@ -26,6 +31,7 @@ interface ListingPayload {
   title: string;
   price: string;
   location: string;
+  meetupArea?: string;
   condition: string;
   category?: string;
   description: string;
@@ -34,6 +40,10 @@ interface ListingPayload {
   imageKey?: string;
   thumbnailUrl?: string;
   thumbnailKey?: string;
+  galleryUrls?: string[];
+  galleryThumbnailUrls?: string[];
+  galleryKeys?: string[];
+  galleryThumbnailKeys?: string[];
   status?: "active" | "sold" | "draft";
 }
 
@@ -111,8 +121,19 @@ export const isSessionListing = (item: Listing): boolean => {
   return !item.isSeeded;
 };
 
-export const getListings = async (options: { mine?: boolean } = {}): Promise<Listing[]> => {
-  const url = options.mine ? `${API_BASE}?mine=1` : API_BASE;
+export const getListings = async (options: { mine?: boolean; limit?: number; cursor?: string } = {}): Promise<Listing[]> => {
+  const params = new URLSearchParams();
+  if (options.mine) {
+    params.set("mine", "1");
+  }
+  if (typeof options.limit === "number") {
+    params.set("limit", String(options.limit));
+  }
+  if (options.cursor) {
+    params.set("cursor", options.cursor);
+  }
+
+  const url = params.toString() ? `${API_BASE}?${params.toString()}` : API_BASE;
   const response = await fetchWithDebug(url, {
     method: "GET",
     headers: {

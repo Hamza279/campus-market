@@ -13,13 +13,11 @@ interface SellForm {
   condition: string;
   category: string;
   description: string;
-  imageUrl: string;
-  imageKey: string;
-  thumbnailUrl: string;
-  thumbnailKey: string;
 }
 
-type SellFormErrors = Partial<Record<keyof SellForm, string>>;
+type SellFormErrors = Partial<Record<keyof SellForm, string>> & {
+  imageUpload?: string;
+};
 
 const CONDITION_OPTIONS = ["New", "Like New", "Good", "Fair", "Used"] as const;
 const CATEGORY_OPTIONS = ["Books", "Electronics", "Furniture", "Clothing", "Transportation", "Supplies", "Other"] as const;
@@ -50,11 +48,8 @@ export const Sell = () => {
     condition: "",
     category: "",
     description: "",
-    imageUrl: "",
-    imageKey: "",
-    thumbnailUrl: "",
-    thumbnailKey: "",
   });
+  const [gallery, setGallery] = useState<UploadedListingImage[]>([]);
   const [submitting, setSubmitting] = useState(false);
   const [uploadingImage, setUploadingImage] = useState(false);
   const [uploadProgress, setUploadProgress] = useState(0);
@@ -63,13 +58,14 @@ export const Sell = () => {
   const [fieldErrors, setFieldErrors] = useState<SellFormErrors>({});
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [createdListingId, setCreatedListingId] = useState<string | null>(null);
-  const previewImageUrl = getListingImageSrc(form.thumbnailUrl || form.imageUrl);
+  const previewImageUrl = getListingImageSrc(gallery[0]?.thumbnailUrl || gallery[0]?.imageUrl || "");
   const descriptionCount = form.description.length;
   const previewTitle = form.title.trim() || "Your listing preview";
   const previewPrice = form.price.trim() ? `$${Number.parseFloat(form.price || "0").toFixed(2)}` : "$0.00";
   const previewCategory = form.category || "Category";
   const previewCondition = form.condition || "Condition";
   const previewLocation = form.location.trim() || "Meetup location";
+  const galleryCount = gallery.length;
   const previewDescription =
     form.description.trim() || "Add a few lines describing what buyers will get, the condition, and how pickup works.";
 
@@ -105,8 +101,8 @@ export const Sell = () => {
       errors.description = `Description must be ${DESCRIPTION_LIMIT} characters or fewer.`;
     }
 
-    if (!form.imageUrl || !form.imageKey || !form.thumbnailUrl || !form.thumbnailKey) {
-      errors.imageUrl = "Upload an item image.";
+    if (gallery.length === 0) {
+      errors.imageUpload = "Upload at least one item image.";
     }
 
     return errors;
@@ -128,20 +124,27 @@ export const Sell = () => {
     setCreatedListingId(null);
     setFieldErrors((current) => {
       if (!current[name as keyof SellForm]) {
-        return current;
+        if (!current.imageUpload) {
+          return current;
+        }
+
+        const next = { ...current };
+        delete next.imageUpload;
+        return next;
       }
 
       const next = { ...current };
       delete next[name as keyof SellForm];
+      delete next.imageUpload;
       return next;
     });
   };
 
-  const handleImageUpload = async (file: File) => {
-    const validationError = getImageFileValidationError(file);
+  const handleImageUpload = async (files: File[]) => {
+    const validationError = files.map(getImageFileValidationError).find(Boolean);
     if (validationError) {
-      setFieldErrors((current) => ({ ...current, imageUrl: validationError }));
-      setError("Please fix the highlighted fields.");
+      setFieldErrors((current) => ({ ...current, imageUpload: validationError || "Please fix the highlighted fields." }));
+      setError(validationError || "Please fix the highlighted fields.");
       return;
     }
 
@@ -150,25 +153,28 @@ export const Sell = () => {
     setError(null);
     setFieldErrors((current) => {
       const next = { ...current };
-      delete next.imageUrl;
+      delete next.imageUpload;
       return next;
     });
 
     try {
-      const thumbnail = await createImageThumbnail(file);
-      const uploaded: UploadedListingImage = await uploadListingImage({
-        file,
-        thumbnail,
-        onProgress: setUploadProgress,
-      });
+      const uploaded: UploadedListingImage[] = [];
+      for (let index = 0; index < files.length; index += 1) {
+        const file = files[index];
+        const thumbnail = await createImageThumbnail(file);
+        const result: UploadedListingImage = await uploadListingImage({
+          file,
+          thumbnail,
+          onProgress: (progress) => {
+            const base = (index / Math.max(files.length, 1)) * 100;
+            const step = progress / Math.max(files.length, 1);
+            setUploadProgress(Math.min(100, Math.round(base + step)));
+          },
+        });
+        uploaded.push(result);
+      }
 
-      setForm((current) => ({
-        ...current,
-        imageUrl: uploaded.imageUrl,
-        imageKey: uploaded.imageKey,
-        thumbnailUrl: uploaded.thumbnailUrl,
-        thumbnailKey: uploaded.thumbnailKey,
-      }));
+      setGallery((current) => [...current, ...uploaded]);
       setUploadProgress(100);
     } catch (uploadError) {
       setError(uploadError instanceof Error ? uploadError.message : "Failed to upload image.");
@@ -198,14 +204,19 @@ export const Sell = () => {
         title: form.title.trim(),
         price: `$${Number.parseFloat(form.price).toFixed(2)}`,
         location: form.location.trim(),
+        meetupArea: form.location.trim(),
         condition: form.condition,
         category: form.category,
         description: form.description.trim(),
-        image: form.imageUrl,
-        imageUrl: form.imageUrl,
-        imageKey: form.imageKey,
-        thumbnailUrl: form.thumbnailUrl,
-        thumbnailKey: form.thumbnailKey,
+        image: gallery[0]?.imageUrl ?? "",
+        imageUrl: gallery[0]?.imageUrl ?? "",
+        imageKey: gallery[0]?.imageKey ?? "",
+        thumbnailUrl: gallery[0]?.thumbnailUrl ?? "",
+        thumbnailKey: gallery[0]?.thumbnailKey ?? "",
+        galleryUrls: gallery.map((item) => item.imageUrl),
+        galleryThumbnailUrls: gallery.map((item) => item.thumbnailUrl),
+        galleryKeys: gallery.map((item) => item.imageKey),
+        galleryThumbnailKeys: gallery.map((item) => item.thumbnailKey),
         status: "active",
       });
 
@@ -218,11 +229,8 @@ export const Sell = () => {
         condition: "",
         category: "",
         description: "",
-        imageUrl: "",
-        imageKey: "",
-        thumbnailUrl: "",
-        thumbnailKey: "",
       });
+      setGallery([]);
     } catch (submitError) {
       setError(submitError instanceof Error ? submitError.message : "Failed to create listing.");
     } finally {
@@ -392,8 +400,8 @@ export const Sell = () => {
           </div>
 
           <div className={styles.formRow}>
-            <label htmlFor="imageUpload">Item image</label>
-            <p className={styles.helperText}>Upload a clear photo. Buyers are more likely to message when they can see the item.</p>
+            <label htmlFor="imageUpload">Item images</label>
+            <p className={styles.helperText}>Upload one or more clear photos. The first image becomes the main preview.</p>
             <div
               className={isDraggingImage ? `${styles.dropZone} ${styles.dropZoneActive}` : styles.dropZone}
               onDragEnter={(event) => {
@@ -404,9 +412,9 @@ export const Sell = () => {
               onDragLeave={() => setIsDraggingImage(false)}
               onDrop={(event) => {
                 event.preventDefault();
-                const file = event.dataTransfer.files.item(0);
-                if (file) {
-                  void handleImageUpload(file);
+                const files = Array.from(event.dataTransfer.files);
+                if (files.length > 0) {
+                  void handleImageUpload(files);
                 }
               }}
             >
@@ -414,24 +422,26 @@ export const Sell = () => {
                 id="imageUpload"
                 name="imageUpload"
                 type="file"
+                multiple
                 accept={IMAGE_UPLOAD_ACCEPT}
                 onChange={(event) => {
-                  const file = event.target.files?.[0];
-                  if (file) {
-                    void handleImageUpload(file);
+                  const files = Array.from(event.target.files ?? []);
+                  if (files.length > 0) {
+                    void handleImageUpload(files);
                   }
                 }}
-                aria-invalid={fieldErrors.imageUrl ? "true" : "false"}
+                aria-invalid={fieldErrors.imageUpload ? "true" : "false"}
               />
-              <strong>{uploadingImage ? "Uploading image..." : "Drop an image here or tap to choose"}</strong>
-              <span>JPG, PNG, or WebP up to 8 MB. A thumbnail is generated before upload.</span>
+              <strong>{uploadingImage ? "Uploading image..." : "Drop images here or tap to choose"}</strong>
+              <span>JPG, PNG, or WebP up to 8 MB each. A thumbnail is generated before upload.</span>
               {uploadingImage || uploadProgress > 0 ? (
                 <div className={styles.progressTrack} aria-label="Image upload progress">
                   <span style={{ width: `${uploadProgress}%` }} />
                 </div>
               ) : null}
+              {galleryCount > 0 ? <small>{galleryCount} image{galleryCount === 1 ? "" : "s"} ready for your listing.</small> : null}
             </div>
-            {fieldErrors.imageUrl ? <p className={styles.fieldError}>{fieldErrors.imageUrl}</p> : null}
+            {fieldErrors.imageUpload ? <p className={styles.fieldError}>{fieldErrors.imageUpload}</p> : null}
           </div>
 
           <div className={styles.previewCard}>
@@ -448,6 +458,7 @@ export const Sell = () => {
                 <span>{previewCategory}</span>
                 <span>{previewCondition}</span>
                 <span>{previewLocation}</span>
+                <span>{galleryCount > 0 ? `${galleryCount} photo${galleryCount === 1 ? "" : "s"}` : "No photos yet"}</span>
               </div>
               <p>{previewDescription}</p>
             </div>

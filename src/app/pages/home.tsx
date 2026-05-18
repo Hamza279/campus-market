@@ -1,11 +1,12 @@
 "use client";
 
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef } from "react";
 import { useSyncedState } from "rwsdk/use-synced-state/client";
 import { ListingCard } from "@/app/shared/ListingCard";
 import styles from "./home.module.css";
 import { getListingImageSrc } from "./image-url";
-import { getListings, type Listing } from "./listings.data";
+import { LISTING_FEED_PAGE_SIZE, useListingFeed } from "./listing-feed";
+import { getRecentlyViewedListings } from "./recently-viewed";
 import { LISTINGS_REALTIME_ROOM, NEW_LISTING_EVENT_KEY, type NewListingEvent } from "./listings.realtime";
 
 const categories = [
@@ -35,13 +36,13 @@ const steps = [
   },
 ] as const;
 
-const getListingTime = (listing: Listing): number => {
-  const timestamp = listing.createdAt ? Date.parse(listing.createdAt) : 0;
+const getListingTime = (createdAt?: string) => {
+  const timestamp = createdAt ? Date.parse(createdAt) : 0;
   return Number.isFinite(timestamp) ? timestamp : 0;
 };
 
-const getPostedLabel = (listing: Listing): string => {
-  const timestamp = getListingTime(listing);
+const getPostedLabel = (createdAt?: string): string => {
+  const timestamp = getListingTime(createdAt);
   if (!timestamp) {
     return "Recently listed";
   }
@@ -59,55 +60,51 @@ const getPostedLabel = (listing: Listing): string => {
 };
 
 export const Home = () => {
-  const [items, setItems] = useState<Listing[]>([]);
-  const [loadingListings, setLoadingListings] = useState(true);
-  const [listingError, setListingError] = useState<string | null>(null);
+  const { items, isLoading, isLoadingMore, error, loadMore, hasMore, refresh } = useListingFeed({ pageSize: LISTING_FEED_PAGE_SIZE });
   const [listingEvent] = useSyncedState<NewListingEvent | null>(null, NEW_LISTING_EVENT_KEY, LISTINGS_REALTIME_ROOM);
-
-  const loadListings = useCallback(async () => {
-    try {
-      const listings = await getListings();
-      setItems(listings);
-      setListingError(null);
-    } catch (error) {
-      console.warn("[home] failed to load featured listings", error);
-      setListingError(error instanceof Error ? error.message : "Failed to load listings.");
-    } finally {
-      setLoadingListings(false);
-    }
-  }, []);
-
-  useEffect(() => {
-    void loadListings();
-
-    const refreshOnReturn = () => {
-      void loadListings();
-    };
-
-    window.addEventListener("focus", refreshOnReturn);
-    window.addEventListener("pageshow", refreshOnReturn);
-
-    return () => {
-      window.removeEventListener("focus", refreshOnReturn);
-      window.removeEventListener("pageshow", refreshOnReturn);
-    };
-  }, [loadListings]);
+  const loadMoreRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (listingEvent) {
-      void loadListings();
+      refresh();
     }
-  }, [listingEvent, loadListings]);
+  }, [listingEvent, refresh]);
 
-  const featuredListings = useMemo(() => {
-    return items
-      .filter((listing) => !listing.sold)
-      .sort((a, b) => getListingTime(b) - getListingTime(a))
-      .slice(0, 3);
-  }, [items]);
+  useEffect(() => {
+    const target = loadMoreRef.current;
+    if (!target) {
+      return;
+    }
 
-  const heroListing = featuredListings[0];
-  const heroListingImage = getListingImageSrc(heroListing?.thumbnailUrl || heroListing?.imageUrl || heroListing?.image || "");
+    const observer = new IntersectionObserver(
+      (entries) => {
+        if (entries.some((entry) => entry.isIntersecting) && hasMore && !isLoadingMore) {
+          loadMore();
+        }
+      },
+      { rootMargin: "600px 0px" },
+    );
+
+    observer.observe(target);
+    return () => observer.disconnect();
+  }, [hasMore, isLoadingMore, loadMore]);
+
+  const activeListings = useMemo(() => items.filter((listing) => !listing.sold), [items]);
+  const heroListing = activeListings[0] ?? items[0];
+  const heroListingImage = getListingImageSrc(heroListing?.galleryUrls[0] || heroListing?.thumbnailUrl || heroListing?.imageUrl || heroListing?.image || "");
+  const featuredListings = activeListings.slice(0, 6);
+  const trendingCategories = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const listing of activeListings) {
+      counts.set(listing.category, (counts.get(listing.category) ?? 0) + 1);
+    }
+
+    return Array.from(counts.entries())
+      .sort((a, b) => b[1] - a[1])
+      .slice(0, 4)
+      .map(([label, count]) => ({ label, count }));
+  }, [activeListings]);
+  const recentlyViewedListings = useMemo(() => getRecentlyViewedListings(items), [items]);
 
   return (
     <div className={styles.page}>
@@ -139,14 +136,14 @@ export const Home = () => {
               <span className={styles.liveDot} aria-hidden="true" />
               <span className={styles.heroCardKicker}>Fresh on 505 Market</span>
             </div>
-            <div className={loadingListings ? `${styles.heroListing} ${styles.heroListingLoading}` : styles.heroListing}>
+            <div className={styles.heroListing}>
               <img src={heroListingImage} alt={heroListing?.title ?? "Featured 505 Market listing"} className={styles.heroListingImage} />
               <span className={styles.heroListingOverlay} />
               <span className={styles.heroListingTag}>{heroListing?.category ?? "Fresh listings"}</span>
-              <span className={styles.heroListingStatus}>{heroListing ? getPostedLabel(heroListing) : "New seller posts appear here"}</span>
+              <span className={styles.heroListingStatus}>{heroListing ? getPostedLabel(heroListing.createdAt) : "New seller posts appear here"}</span>
               <strong className={styles.heroListingTitle}>{heroListing?.title ?? "New campus finds"}</strong>
               <span className={styles.heroListingMeta}>
-                {heroListing ? `${heroListing.location} - ${heroListing.condition}` : "Browse student-posted items"}
+                {heroListing ? `${heroListing.meetupArea || heroListing.location} - ${heroListing.condition}` : "Browse student-posted items"}
               </span>
               <div className={styles.heroListingFooter}>
                 <strong className={styles.heroListingPrice}>{heroListing?.price ?? "Live"}</strong>
@@ -161,8 +158,8 @@ export const Home = () => {
                 <span className={styles.miniStatLabel}>Categories</span>
               </div>
               <div className={styles.miniStat}>
-                <strong className={styles.miniStatValue}>Fast</strong>
-                <span className={styles.miniStatLabel}>Posting</span>
+                <strong className={styles.miniStatValue}>{featuredListings.length || LISTING_FEED_PAGE_SIZE}</strong>
+                <span className={styles.miniStatLabel}>Fresh items</span>
               </div>
             </div>
           </aside>
@@ -188,10 +185,34 @@ export const Home = () => {
         </div>
       </section>
 
+      {trendingCategories.length > 0 ? (
+        <section className={styles.section} aria-labelledby="trending-title">
+          <div className={styles.sectionHeaderRow}>
+            <div className={styles.sectionHeader}>
+              <p className={styles.sectionEyebrow}>Trending now</p>
+              <h2 className={styles.sectionTitle} id="trending-title">
+                Popular categories from recent posts.
+              </h2>
+            </div>
+            <a className={styles.sectionButton} href="/listings">
+              Browse all
+            </a>
+          </div>
+          <div className={styles.trendingRow}>
+            {trendingCategories.map((category) => (
+              <a key={category.label} className={styles.trendingCard} href={`/listings?category=${encodeURIComponent(category.label)}`}>
+                <strong>{category.label}</strong>
+                <span>{category.count} live listings</span>
+              </a>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       <section className={styles.section} aria-labelledby="categories-title">
         <div className={styles.sectionHeader}>
           <p className={styles.sectionEyebrow}>Explore categories</p>
-            <h2 className={styles.sectionTitle} id="categories-title">
+          <h2 className={styles.sectionTitle} id="categories-title">
             Start with categories that make sense to first-time shoppers.
           </h2>
         </div>
@@ -206,10 +227,37 @@ export const Home = () => {
         </div>
       </section>
 
+      {recentlyViewedListings.length > 0 ? (
+        <section className={styles.section} aria-labelledby="recently-viewed-title">
+          <div className={styles.sectionHeaderRow}>
+            <div className={styles.sectionHeader}>
+              <p className={styles.sectionEyebrow}>Recently viewed</p>
+              <h2 className={styles.sectionTitle} id="recently-viewed-title">
+                Pick up where you left off.
+              </h2>
+            </div>
+            <a className={styles.sectionButton} href="/listings">
+              Browse more
+            </a>
+          </div>
+          <div className={styles.featuredGrid}>
+            {recentlyViewedListings.slice(0, 3).map((listing) => (
+              <ListingCard
+                key={listing.id}
+                listing={listing}
+                href={`/listings/${listing.id}`}
+                featuredLabel="Viewed recently"
+                postedLabel={getPostedLabel(listing.createdAt)}
+              />
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       <section className={styles.section} aria-labelledby="featured-title">
         <div className={styles.sectionHeaderRow}>
           <div className={styles.sectionHeader}>
-            <p className={styles.sectionEyebrow}>Featured listings</p>
+            <p className={styles.sectionEyebrow}>Latest listings</p>
             <h2 className={styles.sectionTitle} id="featured-title">
               Good finds around campus.
             </h2>
@@ -219,7 +267,7 @@ export const Home = () => {
           </a>
         </div>
         <div className={styles.featuredGrid}>
-          {loadingListings ? (
+          {isLoading ? (
             Array.from({ length: 3 }, (_, index) => (
               <div className={styles.featuredSkeleton} key={index} aria-hidden="true">
                 <span />
@@ -228,10 +276,10 @@ export const Home = () => {
                 <p />
               </div>
             ))
-          ) : listingError ? (
+          ) : error ? (
             <div className={styles.emptyFeatured}>
               <h3>Listings could not load</h3>
-              <p>{listingError}</p>
+              <p>{error}</p>
               <a className={styles.sectionButton} href="/listings">
                 Try Browse
               </a>
@@ -243,7 +291,7 @@ export const Home = () => {
                 listing={listing}
                 href={`/listings/${listing.id}`}
                 featuredLabel="Fresh listing"
-                postedLabel={getPostedLabel(listing)}
+                postedLabel={getPostedLabel(listing.createdAt)}
               />
             ))
           ) : (
@@ -256,6 +304,8 @@ export const Home = () => {
             </div>
           )}
         </div>
+        <div ref={loadMoreRef} className={styles.feedSentinel} aria-hidden="true" />
+        {isLoadingMore ? <p className={styles.feedStatus}>Loading more listings…</p> : null}
       </section>
 
       <section className={styles.howSection} aria-labelledby="how-title">
