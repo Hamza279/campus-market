@@ -29,7 +29,7 @@ export const ListingCard = ({
   highlighted = false,
   featuredLabel,
 }: ListingCardProps) => {
-  const imageUrl = getListingImageSrc(listing.thumbnailUrl || listing.image);
+  const imageUrl = getListingImageSrc(listing.thumbnailUrl || listing.imageUrl || listing.image);
   const resolvedStatusLabel = statusLabel ?? (listing.sold ? "Sold" : undefined);
   const resolvedStatusTone = statusTone ?? (listing.sold ? "sold" : "active");
   const cardClassName = [

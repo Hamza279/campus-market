@@ -10,6 +10,10 @@ export const getDisplayImageUrl = (image: string): string => {
     return "";
   }
 
+  if (trimmed.startsWith("/")) {
+    return trimmed;
+  }
+
   try {
     const url = new URL(trimmed);
     if (url.protocol !== "http:" && url.protocol !== "https:") {

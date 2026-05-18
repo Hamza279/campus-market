@@ -106,6 +106,26 @@ const createResponse = await request("/api/listings", {
 await assertOk("create seller listing", createResponse);
 const createdListing = await createResponse.json();
 
+const updateResponse = await request(`/api/listings/${createdListing.id}`, {
+  method: "PUT",
+  headers: {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  },
+  body: JSON.stringify({
+    ...createdListing,
+    title: `${createdListing.title} Updated`,
+    price: "$2.00",
+    description: "Updated smoke-test listing.",
+  }),
+});
+await assertOk("update seller listing", updateResponse);
+const updatedListing = await updateResponse.json();
+if (updatedListing.title !== `${createdListing.title} Updated` || updatedListing.price !== "$2.00") {
+  throw new Error("updated listing did not persist returned changes");
+}
+console.log("ok - listing update persists");
+
 await assertOk(
   "save listing to watchlist",
   await request("/api/saved-listings", {
@@ -129,6 +149,12 @@ console.log("ok - watchlist contains saved listing");
 await request("/logout");
 cookies.clear();
 
+const loggedOutDashboard = await request("/dashboard");
+if (loggedOutDashboard.status !== 302) {
+  throw new Error(`dashboard should redirect after logout, got ${loggedOutDashboard.status}`);
+}
+console.log("ok - logout clears session");
+
 const reloginResponse = await request("/login", {
   method: "POST",
   headers: {
@@ -148,6 +174,12 @@ if (!sellerListings.some((listing) => listing.id === createdListing.id)) {
   throw new Error("created seller listing did not persist after logout/login");
 }
 console.log("ok - seller listing persisted after logout/login");
+
+const persistedUpdatedListing = sellerListings.find((listing) => listing.id === createdListing.id);
+if (!persistedUpdatedListing || persistedUpdatedListing.title !== updatedListing.title || persistedUpdatedListing.price !== updatedListing.price) {
+  throw new Error("updated seller listing did not persist after logout/login");
+}
+console.log("ok - updated seller listing persisted after logout/login");
 
 const savedAfterReloginResponse = await request("/api/saved-listings");
 await assertOk("saved listings persist after logout/login", savedAfterReloginResponse);

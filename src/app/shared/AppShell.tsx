@@ -54,12 +54,38 @@ const navItems: NavItem[] = [
 
 export const AppShell = ({ children, currentUser = null }: AppShellProps) => {
   const [menuOpen, setMenuOpen] = useState(false);
-  const [pathname, setPathname] = useState("/");
+  const [pathname, setPathname] = useState(typeof window === "undefined" ? "/" : window.location.pathname);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const mobileNavRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
-    setPathname(window.location.pathname);
+    const syncPathname = () => {
+      setPathname(window.location.pathname);
+      setMenuOpen(false);
+    };
+
+    const originalPushState = window.history.pushState.bind(window.history);
+    const originalReplaceState = window.history.replaceState.bind(window.history);
+
+    window.history.pushState = ((...args) => {
+      originalPushState(...args);
+      syncPathname();
+    }) as History["pushState"];
+
+    window.history.replaceState = ((...args) => {
+      originalReplaceState(...args);
+      syncPathname();
+    }) as History["replaceState"];
+
+    window.addEventListener("popstate", syncPathname);
+    window.addEventListener("pageshow", syncPathname);
+
+    return () => {
+      window.history.pushState = originalPushState;
+      window.history.replaceState = originalReplaceState;
+      window.removeEventListener("popstate", syncPathname);
+      window.removeEventListener("pageshow", syncPathname);
+    };
   }, []);
 
   useEffect(() => {
@@ -89,6 +115,22 @@ export const AppShell = ({ children, currentUser = null }: AppShellProps) => {
     return () => {
       document.removeEventListener("pointerdown", handlePointerDown);
       document.removeEventListener("keydown", handleKeyDown);
+    };
+  }, [menuOpen]);
+
+  useEffect(() => {
+    document.body.style.overflow = menuOpen ? "hidden" : "";
+
+    const handleResize = () => {
+      if (window.innerWidth > 980) {
+        setMenuOpen(false);
+      }
+    };
+
+    window.addEventListener("resize", handleResize);
+    return () => {
+      document.body.style.overflow = "";
+      window.removeEventListener("resize", handleResize);
     };
   }, [menuOpen]);
 
@@ -186,9 +228,9 @@ export const AppShell = ({ children, currentUser = null }: AppShellProps) => {
           aria-controls="mobile-navigation"
           onClick={() => setMenuOpen((current) => !current)}
         >
-          <span />
-          <span />
-          <span />
+          <span className={styles.menuBar} />
+          <span className={styles.menuBar} />
+          <span className={styles.menuBar} />
         </button>
       </header>
 
