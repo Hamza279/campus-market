@@ -142,7 +142,7 @@ export const ListingDetail = ({ listingId }: ListingDetailProps) => {
   return (
     <div className={styles.page}>
       <a href="/listings" className={styles.backButton}>
-        Back to listings
+        Back to Browse
       </a>
 
       <header className={styles.header}>
@@ -204,7 +204,7 @@ export const ListingDetail = ({ listingId }: ListingDetailProps) => {
             <div>
               <h2 className={styles.sectionTitle}>Seller</h2>
               <p className={styles.sellerName}>{listing.sellerName}</p>
-              <p className={styles.sellerMeta}>Student seller</p>
+              <p className={styles.sellerMeta}>505 Market seller</p>
               <a href={`/seller/${listing.ownerId}`} className={styles.sellerLink}>
                 View seller profile
               </a>

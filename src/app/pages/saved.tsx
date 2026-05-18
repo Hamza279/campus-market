@@ -48,8 +48,8 @@ export const SavedItems = () => {
   return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <h1>Saved Items</h1>
-        <p className={styles.subtitle}>Your watchlist follows your account across devices.</p>
+        <h1>Saved items</h1>
+        <p className={styles.subtitle}>Keep track of listings you want to revisit, compare, or message about later.</p>
       </header>
 
       {error ? <p className={styles.errorMessage}>{error}</p> : null}
@@ -61,8 +61,8 @@ export const SavedItems = () => {
         </section>
       ) : items.length === 0 ? (
         <section className={styles.panel}>
-          <h2>No saved items yet</h2>
-          <p>Save listings from Browse and they will appear here.</p>
+          <h2>You have not saved anything yet</h2>
+          <p>When you find something you like on Browse, save it and it will show up here across devices.</p>
           <a href="/listings" className={styles.actionLink}>
             Browse listings
           </a>

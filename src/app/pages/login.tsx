@@ -27,16 +27,16 @@ export const Login = ({
   return (
     <div className={styles.page}>
       <section className={styles.panel} aria-labelledby="login-title">
-        <p className={styles.eyebrow}>CampusMarket account</p>
+        <p className={styles.eyebrow}>505 Market account</p>
         <h1 id="login-title">{isSignup ? "Create your account" : "Welcome back"}</h1>
-        <p className={styles.subtitle}>Create an account to buy, sell, message, and save items.</p>
+        <p className={styles.subtitle}>Create an account to browse, sell, save favorites, and build a seller profile buyers can trust.</p>
 
         <div className={styles.tabs} role="tablist" aria-label="Authentication mode">
           <a className={!isSignup ? `${styles.tab} ${styles.activeTab}` : styles.tab} href={loginHref}>
-            Log In
+            Log in
           </a>
           <a className={isSignup ? `${styles.tab} ${styles.activeTab}` : styles.tab} href={signupHref}>
-            Sign Up
+            Sign up
           </a>
         </div>
 
@@ -127,7 +127,7 @@ export const Login = ({
           ) : (
             <button className={styles.providerButton} type="button" disabled>
               <span className={styles.providerMark}>G</span>
-              Google login needs configuration.
+              Google sign-in needs configuration.
             </button>
           )}
 

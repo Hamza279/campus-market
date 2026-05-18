@@ -30,15 +30,20 @@ const navItems: NavItem[] = [
   },
   {
     label: "Sell",
-    mobileLabel: "Sell an Item",
+    mobileLabel: "List an Item",
     href: "/sell",
     match: (pathname) => pathname === "/sell",
   },
   {
     label: "Dashboard",
-    mobileLabel: "Seller Dashboard",
+    mobileLabel: "Selling Hub",
     href: "/dashboard",
     match: (pathname) => pathname === "/dashboard" || pathname.startsWith("/edit/"),
+  },
+  {
+    label: "Profile",
+    href: "/profile",
+    match: (pathname) => pathname === "/profile",
   },
   {
     label: "Messages",
@@ -46,7 +51,7 @@ const navItems: NavItem[] = [
     match: (pathname) => pathname === "/messages" || pathname.startsWith("/messages/"),
   },
   {
-    label: "Saved Items",
+    label: "Saved",
     href: "/saved",
     match: (pathname) => pathname === "/saved",
   },
@@ -152,12 +157,12 @@ export const AppShell = ({ children, currentUser = null }: AppShellProps) => {
         )}
         <span className={styles.userLabel}>{greetingLabel}</span>
         <a className={styles.authButton} href="/logout" onClick={closeMenu}>
-          Logout
+          Log out
         </a>
       </div>
     ) : (
       <a className={styles.authButton} href="/login" onClick={closeMenu}>
-        Login
+        Log in
       </a>
     );
   };
@@ -182,11 +187,11 @@ export const AppShell = ({ children, currentUser = null }: AppShellProps) => {
         })}
         {currentUser ? (
           <a className={styles.navLink} href="/logout" onClick={closeMenu}>
-            Logout
+            Log out
           </a>
         ) : (
           <a className={`${styles.navLink} ${styles.mobileAuthButton}`} href="/login" onClick={closeMenu}>
-            Login
+            Log in
           </a>
         )}
       </>
@@ -197,8 +202,8 @@ export const AppShell = ({ children, currentUser = null }: AppShellProps) => {
     <div className={styles.shell}>
       <header className={styles.siteHeader}>
         <a href="/" className={styles.brand} onClick={closeMenu}>
-          <span className={styles.brandMark}>CM</span>
-          <span>CampusMarket</span>
+          <span className={styles.brandMark}>505</span>
+          <span>505 Market</span>
         </a>
 
         <nav className={styles.desktopNav} aria-label="Primary navigation">

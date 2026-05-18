@@ -5,6 +5,13 @@ export interface AuthUser {
   email: string;
   name: string | null;
   avatarUrl: string | null;
+  bio: string | null;
+  campusAffiliation: string | null;
+  neighborhood: string | null;
+  meetupLocation: string | null;
+  responseTime: string | null;
+  interests: string | null;
+  contactPreference: string | null;
   createdAt: string;
   updatedAt: string;
 }

@@ -12,6 +12,7 @@ import { defineApp, ErrorResponse } from "rwsdk/worker";
   import { Dashboard } from "@/app/pages/dashboard";
   import { Edit } from "@/app/pages/edit";
   import { ListingDetail } from "@/app/pages/listing";
+  import { ProfilePage } from "@/app/pages/profile";
   import { SellerProfile } from "@/app/pages/seller";
   import { Messages } from "@/app/pages/messages";
   import { SavedItems } from "@/app/pages/saved";
@@ -144,6 +145,18 @@ type SchemaCheck = {
   missingListingColumns: string[];
 };
 
+type ProfileUpdatePayload = {
+  name?: string;
+  avatarUrl?: string;
+  bio?: string;
+  campusAffiliation?: string;
+  neighborhood?: string;
+  meetupLocation?: string;
+  responseTime?: string;
+  interests?: string;
+  contactPreference?: string;
+};
+
 const REQUIRED_SCHEMA_VERSIONS = [
   "0001_create_listings",
   "0002_create_users",
@@ -152,6 +165,7 @@ const REQUIRED_SCHEMA_VERSIONS = [
   "0005_create_saved_listings",
   "0006_image_upload_metadata_and_schema_versions",
   "0007_create_marketplace_messages",
+  "0008_add_user_profiles",
 ] as const;
 
 const REQUIRED_LISTING_COLUMNS = [
@@ -182,7 +196,7 @@ const MAX_THUMBNAIL_BYTES = 1024 * 1024;
 
 let schemaReady: Promise<void> | null = null;
 const DEFAULT_USER_ID = "campus-user";
-const DEFAULT_SELLER_NAME = "Campus User";
+const DEFAULT_SELLER_NAME = "505 Market Seller";
 let latestRealtimeDebugEvent: NewListingEvent | null = null;
 
 const getRequester = (user: AuthUser | null) => {
@@ -217,13 +231,13 @@ const ensureMarketplaceSchema = (db: D1Database) => {
         is_seeded INTEGER NOT NULL DEFAULT 0 CHECK (is_seeded IN (0, 1)),
         owner_id TEXT NOT NULL DEFAULT 'campus-admin',
         seller_email TEXT NOT NULL DEFAULT '',
-        seller_name TEXT NOT NULL DEFAULT 'Campus User',
+        seller_name TEXT NOT NULL DEFAULT '505 Market Seller',
         created_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP,
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       )`,
       "ALTER TABLE listings ADD COLUMN category TEXT NOT NULL DEFAULT 'Other'",
       "ALTER TABLE listings ADD COLUMN owner_id TEXT NOT NULL DEFAULT 'campus-admin'",
-      "ALTER TABLE listings ADD COLUMN seller_name TEXT NOT NULL DEFAULT 'Campus User'",
+      "ALTER TABLE listings ADD COLUMN seller_name TEXT NOT NULL DEFAULT '505 Market Seller'",
       "ALTER TABLE listings ADD COLUMN image_url TEXT NOT NULL DEFAULT ''",
       "ALTER TABLE listings ADD COLUMN image_key TEXT NOT NULL DEFAULT ''",
       "ALTER TABLE listings ADD COLUMN thumbnail_key TEXT NOT NULL DEFAULT ''",
@@ -246,6 +260,13 @@ const ensureMarketplaceSchema = (db: D1Database) => {
         updated_at TEXT NOT NULL DEFAULT CURRENT_TIMESTAMP
       )`,
       "ALTER TABLE users ADD COLUMN password_hash TEXT",
+      "ALTER TABLE users ADD COLUMN bio TEXT",
+      "ALTER TABLE users ADD COLUMN campus_affiliation TEXT",
+      "ALTER TABLE users ADD COLUMN neighborhood TEXT",
+      "ALTER TABLE users ADD COLUMN meetup_location TEXT",
+      "ALTER TABLE users ADD COLUMN response_time TEXT",
+      "ALTER TABLE users ADD COLUMN interests TEXT",
+      "ALTER TABLE users ADD COLUMN contact_preference TEXT",
       "CREATE UNIQUE INDEX IF NOT EXISTS idx_users_provider_identity ON users(provider, provider_id)",
       "CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)",
       `CREATE TABLE IF NOT EXISTS saved_listings (
@@ -517,6 +538,82 @@ const validateInsertParams = (values: unknown[]): string | null => {
 
   return null;
 };
+
+const normalizeOptionalProfileField = (value: unknown, maxLength: number) => {
+  if (value === undefined || value === null) {
+    return undefined;
+  }
+
+  if (typeof value !== "string") {
+    return undefined;
+  }
+
+  const trimmed = value.trim();
+  if (!trimmed) {
+    return null;
+  }
+
+  return trimmed.slice(0, maxLength);
+};
+
+const isProfileUpdatePayload = (value: unknown): value is ProfileUpdatePayload => {
+  return typeof value === "object" && value !== null && !Array.isArray(value);
+};
+
+const validateProfileUpdatePayload = (payload: ProfileUpdatePayload): string | null => {
+  const stringFields = [
+    "name",
+    "avatarUrl",
+    "bio",
+    "campusAffiliation",
+    "neighborhood",
+    "meetupLocation",
+    "responseTime",
+    "interests",
+    "contactPreference",
+  ] as const;
+
+  for (const field of stringFields) {
+    const value = payload[field];
+    if (value !== undefined && typeof value !== "string") {
+      return `${field} must be a string.`;
+    }
+  }
+
+  if (payload.avatarUrl) {
+    const avatarError = getImageUrlValidationError(payload.avatarUrl);
+    if (avatarError) {
+      return avatarError;
+    }
+  }
+
+  return null;
+};
+
+const toProfile = (user: AuthUser) => ({
+  id: user.id,
+  email: user.email,
+  name: user.name || user.email.split("@")[0] || "505 Market seller",
+  avatarUrl: user.avatarUrl || "",
+  bio: user.bio || "",
+  campusAffiliation: user.campusAffiliation || "",
+  neighborhood: user.neighborhood || "",
+  meetupLocation: user.meetupLocation || "",
+  responseTime: user.responseTime || "",
+  interests: user.interests || "",
+  contactPreference: user.contactPreference || "",
+  hasCustomProfile: Boolean(
+    user.name ||
+      user.avatarUrl ||
+      user.bio ||
+      user.campusAffiliation ||
+      user.neighborhood ||
+      user.meetupLocation ||
+      user.responseTime ||
+      user.interests ||
+      user.contactPreference,
+  ),
+});
 
 const isDebugListingPayload = (value: unknown): value is DebugListingPayload => {
   return typeof value === "object" && value !== null && !Array.isArray(value);
@@ -1036,6 +1133,13 @@ const getUserById = async (db: D1Database, id: string): Promise<AuthUser | null>
           email,
           name,
           avatar_url AS avatarUrl,
+          bio,
+          campus_affiliation AS campusAffiliation,
+          neighborhood,
+          meetup_location AS meetupLocation,
+          response_time AS responseTime,
+          interests,
+          contact_preference AS contactPreference,
           created_at AS createdAt,
           updated_at AS updatedAt
         FROM users
@@ -1044,6 +1148,53 @@ const getUserById = async (db: D1Database, id: string): Promise<AuthUser | null>
     )
     .bind(id)
     .first<AuthUser>();
+};
+
+const updateUserProfile = async (db: D1Database, userId: string, payload: ProfileUpdatePayload): Promise<AuthUser | null> => {
+  const nextName = normalizeOptionalProfileField(payload.name, 80);
+  const nextAvatarUrl = normalizeOptionalProfileField(payload.avatarUrl, 500);
+  const nextBio = normalizeOptionalProfileField(payload.bio, 400);
+  const nextCampusAffiliation = normalizeOptionalProfileField(payload.campusAffiliation, 120);
+  const nextNeighborhood = normalizeOptionalProfileField(payload.neighborhood, 120);
+  const nextMeetupLocation = normalizeOptionalProfileField(payload.meetupLocation, 120);
+  const nextResponseTime = normalizeOptionalProfileField(payload.responseTime, 80);
+  const nextInterests = normalizeOptionalProfileField(payload.interests, 160);
+  const nextContactPreference = normalizeOptionalProfileField(payload.contactPreference, 160);
+
+  await db
+    .prepare(
+      `
+        UPDATE users
+        SET
+          name = ?,
+          avatar_url = ?,
+          bio = ?,
+          campus_affiliation = ?,
+          neighborhood = ?,
+          meetup_location = ?,
+          response_time = ?,
+          interests = ?,
+          contact_preference = ?,
+          updated_at = ?
+        WHERE id = ?
+      `,
+    )
+    .bind(
+      nextName ?? null,
+      nextAvatarUrl ?? null,
+      nextBio ?? null,
+      nextCampusAffiliation ?? null,
+      nextNeighborhood ?? null,
+      nextMeetupLocation ?? null,
+      nextResponseTime ?? null,
+      nextInterests ?? null,
+      nextContactPreference ?? null,
+      new Date().toISOString(),
+      userId,
+    )
+    .run();
+
+  return await getUserById(db, userId);
 };
 
 const redirect = (location: string, headers = new Headers()) => {
@@ -1569,6 +1720,63 @@ const createApp = (env: Env) => {
           },
         }),
 
+        route("/api/profile", {
+          get: async ({ ctx }: { ctx: AppContext }) => {
+            await ensureMarketplaceSchema(env.campusmarket_db);
+            if (!ctx.user) {
+              return json({ error: "Login required." }, { status: 401 });
+            }
+
+            const user = await getUserById(env.campusmarket_db, ctx.user.id);
+            if (!user) {
+              return json({ error: "Profile not found." }, { status: 404 });
+            }
+
+            return json(toProfile(user));
+          },
+          put: async ({ request, ctx }: { request: Request; ctx: AppContext }) => {
+            await ensureMarketplaceSchema(env.campusmarket_db);
+            if (!ctx.user) {
+              return json({ error: "Login required." }, { status: 401 });
+            }
+
+            let payload: unknown = null;
+            try {
+              payload = await request.json();
+            } catch {
+              payload = null;
+            }
+
+            if (!isProfileUpdatePayload(payload)) {
+              return json({ error: "Invalid JSON body." }, { status: 400 });
+            }
+
+            const payloadError = validateProfileUpdatePayload(payload);
+            if (payloadError) {
+              return json({ error: payloadError }, { status: 400 });
+            }
+
+            const updated = await updateUserProfile(env.campusmarket_db, ctx.user.id, payload);
+            if (!updated) {
+              return json({ error: "Profile not found." }, { status: 404 });
+            }
+
+            return json(toProfile(updated));
+          },
+        }),
+
+        route("/api/profile/:id", {
+          get: async ({ params }: { params: { id: string } }) => {
+            await ensureMarketplaceSchema(env.campusmarket_db);
+            const user = await getUserById(env.campusmarket_db, params.id);
+            if (!user) {
+              return json({ error: "Profile not found." }, { status: 404 });
+            }
+
+            return json(toProfile(user));
+          },
+        }),
+
         route("/api/listings", {
           get: async ({ request, ctx }: { request: Request; ctx: AppContext }) => {
             await ensureMarketplaceSchema(env.campusmarket_db);
@@ -2040,6 +2248,10 @@ const createApp = (env: Env) => {
             withAppShell(<Messages conversationId={params.conversationId} />, ctx.user),
         ]),
         route("/saved", ({ ctx }: { ctx: AppContext }) => withAppShell(<SavedItems />, ctx.user)),
+        route("/profile", [
+          requireUser,
+          ({ ctx }: { ctx: AppContext }) => withAppShell(<ProfilePage />, ctx.user),
+        ]),
         route("/dev/realtime", ({ request, ctx }: { request: Request; ctx: AppContext }) => {
           if (!isLocalRequest(request)) {
             return new Response("Not found.", { status: 404 });

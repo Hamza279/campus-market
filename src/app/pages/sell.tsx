@@ -209,8 +209,8 @@ export const Sell = () => {
   return (
     <div className={styles.page}>
       <header className={styles.header}>
-        <h1>Sell an Item</h1>
-        <p className={styles.subtitle}>Create a new listing for campus buyers.</p>
+        <h1>List an item for sale</h1>
+        <p className={styles.subtitle}>Fill out a few simple details and your item will appear on Browse, Home, and your selling hub.</p>
       </header>
 
       <form className={styles.form} onSubmit={handleSubmit}>
@@ -218,11 +218,14 @@ export const Sell = () => {
           <div className={styles.successMessage}>
             <span>{successMessage}</span>
             {createdListingId ? <a href={`/listings/${createdListingId}`}>View listing</a> : null}
+            <a href="/dashboard">Open your selling hub</a>
+            <a href="/listings">See it on Browse</a>
           </div>
         ) : null}
 
         <div className={styles.formRow}>
           <label htmlFor="title">Title</label>
+          <p className={styles.helperText}>Use the words a buyer would search for first.</p>
           <input
             id="title"
             name="title"
@@ -238,6 +241,7 @@ export const Sell = () => {
         <div className={styles.formRowGroup}>
           <div className={styles.formRowHalf}>
             <label htmlFor="price">Price</label>
+            <p className={styles.helperText}>Numbers only. We will format it as a dollar amount.</p>
             <input
               id="price"
               name="price"
@@ -252,6 +256,7 @@ export const Sell = () => {
           </div>
           <div className={styles.formRowHalf}>
             <label htmlFor="location">Location</label>
+            <p className={styles.helperText}>Share a clear meetup area buyers will recognize.</p>
             <input
               id="location"
               name="location"
@@ -268,6 +273,7 @@ export const Sell = () => {
         <div className={styles.formRowGroup}>
           <div className={styles.formRowHalf}>
             <label htmlFor="condition">Condition</label>
+            <p className={styles.helperText}>Be honest so buyers know what to expect.</p>
             <select
               id="condition"
               name="condition"
@@ -287,6 +293,7 @@ export const Sell = () => {
 
           <div className={styles.formRowHalf}>
             <label htmlFor="category">Category</label>
+            <p className={styles.helperText}>Choose the closest match to help Browse filters work well.</p>
             <select
               id="category"
               name="category"
@@ -312,6 +319,7 @@ export const Sell = () => {
               {descriptionCount}/{DESCRIPTION_LIMIT}
             </span>
           </div>
+          <p className={styles.helperText}>Mention brand, size, wear, included accessories, and where you prefer to meet.</p>
           <textarea
             id="description"
             name="description"
@@ -326,6 +334,7 @@ export const Sell = () => {
 
         <div className={styles.formRow}>
           <label htmlFor="imageUpload">Item image</label>
+          <p className={styles.helperText}>Upload a clear photo. Buyers are more likely to message when they can see the item.</p>
           <div
             className={isDraggingImage ? `${styles.dropZone} ${styles.dropZoneActive}` : styles.dropZone}
             onDragEnter={(event) => {

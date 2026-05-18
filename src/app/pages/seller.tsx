@@ -1,6 +1,8 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { ListingCard } from "@/app/shared/ListingCard";
+import { getPublicProfile, type MarketplaceProfile } from "./profile.data";
 import styles from "./seller.module.css";
 import { getListings, Listing } from "./listings.data";
 
@@ -10,6 +12,7 @@ interface SellerProfileProps {
 
 export const SellerProfile = ({ sellerId }: SellerProfileProps) => {
   const [items, setItems] = useState<Listing[]>([]);
+  const [profile, setProfile] = useState<MarketplaceProfile | null>(null);
   const [loaded, setLoaded] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -18,8 +21,9 @@ export const SellerProfile = ({ sellerId }: SellerProfileProps) => {
 
     void (async () => {
       try {
-        const listings = await getListings();
+        const [publicProfile, listings] = await Promise.all([getPublicProfile(sellerId), getListings()]);
         if (!cancelled) {
+          setProfile(publicProfile);
           setItems(listings.filter((listing) => listing.ownerId === sellerId));
         }
       } catch (loadError) {
@@ -38,39 +42,50 @@ export const SellerProfile = ({ sellerId }: SellerProfileProps) => {
     };
   }, [sellerId]);
 
-  const sellerName = items[0]?.sellerName ?? "Campus User";
+  const sellerName = profile?.name ?? items[0]?.sellerName ?? "505 Market seller";
+  const sellerBio =
+    profile?.bio ||
+    "This seller has not customized their profile yet, but you can still browse their active listings and message them from an item page.";
 
   return (
     <div className={styles.page}>
       <a href="/listings" className={styles.backButton}>
-        Back to listings
+        Back to Browse
       </a>
       <header className={styles.header}>
         <h1>{sellerName}</h1>
-        <p className={styles.subtitle}>Seller profile placeholder for CampusMarket.</p>
+        <p className={styles.subtitle}>See who this seller is, where they like to meet, and what else they have listed on 505 Market.</p>
       </header>
 
       {error ? <p className={styles.error}>{error}</p> : null}
 
       <section className={styles.profileCard}>
-        <div className={styles.avatar}>{sellerName.slice(0, 1).toUpperCase()}</div>
+        {profile?.avatarUrl ? (
+          <img src={profile.avatarUrl} alt={sellerName} className={styles.avatarImage} />
+        ) : (
+          <div className={styles.avatar}>{sellerName.slice(0, 1).toUpperCase()}</div>
+        )}
         <div>
-          <h2>Campus seller</h2>
-          <p>Verified profile, ratings, and response time can live here later.</p>
+          <h2>About this seller</h2>
+          <p>{sellerBio}</p>
+          <div className={styles.metaList}>
+            <span>{profile?.campusAffiliation || "UNM or local community seller"}</span>
+            <span>{profile?.neighborhood || "Neighborhood not shared yet"}</span>
+            <span>{profile?.meetupLocation || "Meetup spot shared in messages"}</span>
+            <span>{profile?.responseTime || "Response time not shared yet"}</span>
+            <span>{profile?.interests || "General marketplace seller"}</span>
+            <span>{profile?.contactPreference || "Message through 505 Market"}</span>
+          </div>
         </div>
       </section>
 
       <section className={styles.section}>
-        <h2>Seller listings</h2>
+        <h2>Listings from {sellerName}</h2>
         {!loaded ? <p>Loading seller listings...</p> : null}
-        {loaded && items.length === 0 ? <p>No listings found for this seller.</p> : null}
+        {loaded && items.length === 0 ? <p>This seller does not have any active listings right now.</p> : null}
         <div className={styles.grid}>
           {items.map((item) => (
-            <a key={item.id} href={`/listings/${item.id}`} className={styles.card}>
-              <strong>{item.title}</strong>
-              <span>{item.price}</span>
-              <small>{item.sold ? "Sold" : "Active"}</small>
-            </a>
+            <ListingCard key={item.id} listing={item} href={`/listings/${item.id}`} postedLabel={item.createdAt ? "Recently posted" : undefined} />
           ))}
         </div>
       </section>

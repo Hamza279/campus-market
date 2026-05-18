@@ -100,6 +100,13 @@ export const upsertGoogleUser = async (db: D1Database, profile: GoogleUserInfo):
           email,
           name,
           avatar_url AS avatarUrl,
+          bio,
+          campus_affiliation AS campusAffiliation,
+          neighborhood,
+          meetup_location AS meetupLocation,
+          response_time AS responseTime,
+          interests,
+          contact_preference AS contactPreference,
           created_at AS createdAt,
           updated_at AS updatedAt
         FROM users
@@ -126,6 +133,13 @@ export const upsertGoogleUser = async (db: D1Database, profile: GoogleUserInfo):
       email: profile.email,
       name: profile.name ?? null,
       avatarUrl: profile.picture ?? null,
+      bio: existing.bio,
+      campusAffiliation: existing.campusAffiliation,
+      neighborhood: existing.neighborhood,
+      meetupLocation: existing.meetupLocation,
+      responseTime: existing.responseTime,
+      interests: existing.interests,
+      contactPreference: existing.contactPreference,
       updatedAt: now,
     };
   }
@@ -137,6 +151,13 @@ export const upsertGoogleUser = async (db: D1Database, profile: GoogleUserInfo):
     email: profile.email,
     name: profile.name ?? null,
     avatarUrl: profile.picture ?? null,
+    bio: null,
+    campusAffiliation: null,
+    neighborhood: null,
+    meetupLocation: null,
+    responseTime: null,
+    interests: null,
+    contactPreference: null,
     createdAt: now,
     updatedAt: now,
   };

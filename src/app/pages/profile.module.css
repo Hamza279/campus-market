@@ -1,0 +1,32 @@
+.page {
+  max-width: 980px;
+  margin: 0 auto;
+  padding: 2.25rem 1.5rem 3.25rem;
+  min-height: 100vh;
+  color: #111827;
+}
+
+.eyebrow {
+  margin: 0 0 0.55rem;
+  color: #2563eb;
+  font-size: 0.78rem;
+  font-weight: 950;
+  text-transform: uppercase;
+}
+
+.header {
+  margin-bottom: 1.5rem;
+}
+
+.header h1 {
+  margin: 0;
+  font-size: clamp(2.1rem, 3vw, 3.25rem);
+  line-height: 1.05;
+}
+
+.subtitle {
+  margin: 0.75rem 0 0;
+  max-width: 46rem;
+  color: #475569;
+  line-height: 1.7;
+}

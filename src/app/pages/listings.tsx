@@ -444,9 +444,9 @@ export const Listings = () => {
     <div className={styles.page}>
       <header className={styles.header}>
         <div>
-          <p className={styles.eyebrow}>Browse marketplace</p>
-          <h1>Campus Listings</h1>
-          <p className={styles.subtitle}>Browse student-ready items nearby.</p>
+          <p className={styles.eyebrow}>Browse 505 Market</p>
+          <h1>Find local listings fast</h1>
+          <p className={styles.subtitle}>Search by item, filter by category or location, and quickly scan the details that matter most.</p>
         </div>
         <div className={styles.headerActions}>
           <span
@@ -457,7 +457,7 @@ export const Listings = () => {
             {isRealtimeConnected ? "Connected to realtime" : "Connecting to realtime..."}
           </span>
           <a href="/sell" className={styles.actionButton}>
-            Sell an Item
+            Sell an item
           </a>
         </div>
       </header>
@@ -507,7 +507,7 @@ export const Listings = () => {
         <div className={styles.filtersHeader}>
           <div>
             <h2>Find the right item</h2>
-            <p>Search by title, narrow by campus details, then sort the results.</p>
+            <p>Use simple filters to narrow by category, location, price, and condition. Everything updates as you go.</p>
           </div>
         </div>
 
@@ -518,7 +518,7 @@ export const Listings = () => {
               type="search"
               value={searchQuery}
               onChange={(event) => setSearchQuery(event.target.value)}
-              placeholder="Search title or description"
+              placeholder="Search textbooks, bikes, couches, calculators..."
             />
           </label>
           <label className={styles.toggle}>
@@ -622,8 +622,8 @@ export const Listings = () => {
         </div>
       ) : filteredItems.length === 0 ? (
         <div className={styles.emptyState}>
-          <h2>No listings match your filters</h2>
-          <p>Try clearing saved-only mode, widening your price range, or searching a different keyword.</p>
+          <h2>No listings match those filters</h2>
+          <p>Try widening your search or clear a few filters. New listings appear here automatically when sellers post them.</p>
           <button
             type="button"
             className={styles.clearButton}

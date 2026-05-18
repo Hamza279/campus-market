@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSyncedState } from "rwsdk/use-synced-state/client";
 import styles from "./dashboard.module.css";
 import { ListingCard } from "@/app/shared/ListingCard";
+import { ProfileEditor } from "@/app/shared/ProfileEditor";
 import { canManageListing, deleteListing, getListings, Listing, updateListing } from "./listings.data";
 import { LISTINGS_REALTIME_ROOM, NEW_LISTING_EVENT_KEY, type NewListingEvent } from "./listings.realtime";
 
@@ -164,15 +165,21 @@ export const Dashboard = () => {
     <div className={styles.page}>
       <header className={styles.header}>
         <div>
-          <p className={styles.eyebrow}>Seller workspace</p>
-          <h1>Seller Dashboard</h1>
-          <p className={styles.subtitle}>Manage every posted listing from one control panel.</p>
+          <p className={styles.eyebrow}>Your selling hub</p>
+          <h1>Manage your 505 Market listings</h1>
+          <p className={styles.subtitle}>Track active items, update your public seller profile, and keep your listings ready for first-time buyers.</p>
         </div>
         <a href="/sell" className={styles.headerAction}>
-          Add Listing
+          List a new item
         </a>
       </header>
       {error ? <p className={styles.errorMessage}>{error}</p> : null}
+
+      <ProfileEditor
+        compact
+        title="Profile buyers will see"
+        subtitle="Add a friendly name, meetup preference, and quick bio so buyers know they are dealing with a real local seller."
+      />
 
       <section className={styles.statsGrid} aria-label="Listing summary">
         <article className={styles.statCard}>
@@ -238,10 +245,10 @@ export const Dashboard = () => {
         </div>
       ) : items.length === 0 ? (
         <div className={styles.emptyState}>
-          <h2>No listings yet</h2>
-          <p>Create a listing from the Sell page and it will appear here.</p>
+          <h2>You have not listed anything yet</h2>
+          <p>Create your first listing and it will appear here, on Home, and on Browse right away.</p>
           <a href="/sell" className={styles.emptyAction}>
-            Add your first listing
+            Sell your first item
           </a>
         </div>
       ) : filteredItems.length === 0 ? (

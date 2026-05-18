@@ -90,6 +90,45 @@ console.log("ok - login creates session");
 await assertOk("dashboard with session", await request("/dashboard"));
 await assertOk("dashboard after refresh with same session", await request("/dashboard"));
 
+const profileResponse = await request("/api/profile");
+await assertOk("load current profile", profileResponse);
+const profile = await profileResponse.json();
+
+const updateProfileResponse = await request("/api/profile", {
+  method: "PUT",
+  headers: {
+    "Content-Type": "application/json",
+    Accept: "application/json",
+  },
+  body: JSON.stringify({
+    name: "505 Smoke Seller",
+    bio: "Smoke profile bio",
+    campusAffiliation: "UNM student",
+    neighborhood: "Nob Hill",
+    meetupLocation: "Student Union",
+    responseTime: "Within a few hours",
+    interests: "Books, tech",
+    contactPreference: "Message me in app first",
+  }),
+});
+await assertOk("save current profile", updateProfileResponse);
+const updatedProfile = await updateProfileResponse.json();
+if (updatedProfile.name !== "505 Smoke Seller" || updatedProfile.meetupLocation !== "Student Union") {
+  throw new Error("profile changes did not persist");
+}
+console.log("ok - profile save persists");
+
+const publicProfileResponse = await request(`/api/profile/${profile.id}`);
+await assertOk("load public seller profile", publicProfileResponse);
+const publicProfile = await publicProfileResponse.json();
+if (publicProfile.name !== "505 Smoke Seller" || publicProfile.bio !== "Smoke profile bio") {
+  throw new Error("public profile did not reflect saved profile data");
+}
+console.log("ok - public profile shows saved data");
+
+await assertOk("profile page with session", await request("/profile"));
+await assertOk("public seller page route", await request(`/seller/${profile.id}`));
+
 const uploadForm = new FormData();
 uploadForm.set("image", new File([tinyPng], "smoke-image.png", { type: "image/png" }));
 uploadForm.set("thumbnail", new File([tinyPng], "smoke-thumb.png", { type: "image/png" }));

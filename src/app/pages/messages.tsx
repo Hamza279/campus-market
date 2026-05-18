@@ -162,7 +162,7 @@ export const Messages = ({ conversationId }: MessagesProps) => {
     <div className={styles.page}>
       <header className={styles.header}>
         <h1>Messages</h1>
-        <p className={styles.subtitle}>Follow up with buyers and sellers about active marketplace listings.</p>
+        <p className={styles.subtitle}>Buyer and seller conversations will appear here when someone contacts you from a listing.</p>
       </header>
 
       {error ? (
@@ -183,7 +183,7 @@ export const Messages = ({ conversationId }: MessagesProps) => {
           {!loadingInbox && conversations.length === 0 ? (
             <div className={styles.emptyState}>
               <h2>No messages yet</h2>
-              <p>Contact a seller from a listing to start a conversation.</p>
+              <p>Once a buyer reaches out, your real conversations will appear here. Nothing is pre-filled or fake.</p>
               <a href="/listings" className={styles.actionLink}>
                 Browse listings
               </a>
@@ -223,7 +223,7 @@ export const Messages = ({ conversationId }: MessagesProps) => {
           {!activeId ? (
             <div className={styles.threadEmpty}>
               <h2>Select a conversation</h2>
-              <p>Open a message thread to read and reply.</p>
+              <p>Choose a thread to read details, reply, and keep the sale moving.</p>
             </div>
           ) : null}
 

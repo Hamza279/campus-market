@@ -96,10 +96,10 @@ export const Home = () => {
       <section className={styles.heroSection}>
         <div className={styles.heroInner}>
           <div className={styles.heroCopy}>
-            <p className={styles.eyebrow}>Student-to-student marketplace</p>
-            <h1 className={styles.heroTitle}>Find the campus gear you need. Sell what you do not.</h1>
+            <p className={styles.eyebrow}>Simple local student marketplace</p>
+            <h1 className={styles.heroTitle}>Buy, sell, and meet nearby with 505 Market.</h1>
             <p className={styles.heroText}>
-              CampusMarket helps students buy and sell textbooks, dorm essentials, bikes, and everyday gear with people nearby.
+              505 Market is a student-friendly place to find textbooks, furniture, bikes, tech, and other everyday items around campus.
             </p>
             <div className={styles.heroActions}>
               <a className={styles.primaryButton} href="/listings">
@@ -114,10 +114,10 @@ export const Home = () => {
           <aside className={styles.heroCard} aria-label="Marketplace snapshot">
             <div className={styles.heroCardHeader}>
               <span className={styles.liveDot} aria-hidden="true" />
-              <span className={styles.heroCardKicker}>Fresh on CampusMarket</span>
+              <span className={styles.heroCardKicker}>Fresh on 505 Market</span>
             </div>
             <div className={loadingListings ? `${styles.heroListing} ${styles.heroListingLoading}` : styles.heroListing}>
-              <img src={heroListingImage} alt={heroListing?.title ?? "Featured CampusMarket listing"} className={styles.heroListingImage} />
+              <img src={heroListingImage} alt={heroListing?.title ?? "Featured 505 Market listing"} className={styles.heroListingImage} />
               <span className={styles.heroListingOverlay} />
               <span className={styles.heroListingTag}>{heroListing?.category ?? "Fresh listings"}</span>
               <strong className={styles.heroListingTitle}>{heroListing?.title ?? "New campus finds"}</strong>
@@ -148,8 +148,8 @@ export const Home = () => {
       <section className={styles.section} aria-labelledby="categories-title">
         <div className={styles.sectionHeader}>
           <p className={styles.sectionEyebrow}>Explore categories</p>
-          <h2 className={styles.sectionTitle} id="categories-title">
-            Shop the stuff students actually need.
+            <h2 className={styles.sectionTitle} id="categories-title">
+            Start with categories that make sense to first-time shoppers.
           </h2>
         </div>
         <div className={styles.categoryGrid}>
@@ -200,7 +200,7 @@ export const Home = () => {
           ) : (
             <div className={styles.emptyFeatured}>
               <h3>No live listings yet</h3>
-              <p>Post the first item from the Sell page and it will appear here.</p>
+              <p>Be the first seller on 505 Market. Your newest listing will show up here automatically.</p>
               <a className={styles.sectionButton} href="/sell">
                 Sell an item
               </a>
@@ -232,7 +232,7 @@ export const Home = () => {
           <div className={styles.ctaCopy}>
             <p className={styles.sectionEyebrow}>Ready when you are</p>
             <h2 className={styles.ctaTitle} id="cta-title">
-              Post your first listing or browse what students are selling today.
+              Post your first listing or browse what students near UNM are selling today.
             </h2>
           </div>
           <div className={styles.ctaActions}>
