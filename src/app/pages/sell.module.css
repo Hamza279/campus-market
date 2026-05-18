@@ -400,10 +400,14 @@ textarea {
   }
 
   .form {
-    padding: 1rem;
+    padding: 1rem 1rem 5.75rem;
   }
 
   .submitButton {
+    position: sticky;
+    bottom: calc(5.1rem + env(safe-area-inset-bottom));
+    z-index: 30;
     width: 100%;
+    box-shadow: 0 22px 42px rgba(169, 84, 38, 0.28);
   }
 }

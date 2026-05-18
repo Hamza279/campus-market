@@ -32,6 +32,7 @@ export const ListingCard = ({
   const imageUrl = getListingImageSrc(listing.thumbnailUrl || listing.imageUrl || listing.image);
   const resolvedStatusLabel = statusLabel ?? (listing.sold ? "Sold" : undefined);
   const resolvedStatusTone = statusTone ?? (listing.sold ? "sold" : "active");
+  const sellerHref = listing.ownerId ? `/seller/${listing.ownerId}` : undefined;
   const cardClassName = [
     styles.card,
     variant === "seller" ? styles.sellerCard : "",
@@ -80,7 +81,15 @@ export const ListingCard = ({
           </div>
           <div>
             <dt>Seller</dt>
-            <dd>{listing.sellerName}</dd>
+            <dd>
+              {sellerHref ? (
+                <a href={sellerHref} className={styles.sellerLink}>
+                  {listing.sellerName}
+                </a>
+              ) : (
+                listing.sellerName
+              )}
+            </dd>
           </div>
           {postedLabel ? (
             <div>

@@ -213,6 +213,16 @@
   line-height: 1.4;
 }
 
+.sellerLink {
+  color: #a95426;
+  font-weight: 800;
+  text-decoration: none;
+}
+
+.sellerLink:hover {
+  text-decoration: underline;
+}
+
 .footer {
   display: flex;
   flex-wrap: wrap;
@@ -226,7 +236,24 @@
 
 @media (max-width: 640px) {
   .imageLink {
-    height: 180px;
+    height: 220px;
+  }
+
+  .body {
+    gap: 0.75rem;
+    padding: 1rem;
+  }
+
+  .title {
+    font-size: 1rem;
+  }
+
+  .description {
+    display: none;
+  }
+
+  .metaGrid {
+    grid-template-columns: 1fr;
   }
 
   .footer {

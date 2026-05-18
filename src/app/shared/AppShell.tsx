@@ -12,6 +12,8 @@ interface AppShellProps {
 interface NavItem {
   label: string;
   mobileLabel?: string;
+  shortLabel?: string;
+  icon: string;
   href: string;
   match: (pathname: string) => boolean;
 }
@@ -19,39 +21,53 @@ interface NavItem {
 const navItems: NavItem[] = [
   {
     label: "Home",
+    shortLabel: "Home",
+    icon: "Home",
     href: "/",
     match: (pathname) => pathname === "/",
   },
   {
     label: "Browse",
     mobileLabel: "Listings",
+    shortLabel: "Browse",
+    icon: "Browse",
     href: "/listings",
     match: (pathname) => pathname === "/listings" || pathname.startsWith("/listings/") || pathname.startsWith("/listing/"),
   },
   {
     label: "Sell",
     mobileLabel: "List an Item",
+    shortLabel: "Sell",
+    icon: "Sell",
     href: "/sell",
     match: (pathname) => pathname === "/sell",
   },
   {
     label: "Dashboard",
     mobileLabel: "Selling Hub",
+    shortLabel: "Hub",
+    icon: "Hub",
     href: "/dashboard",
     match: (pathname) => pathname === "/dashboard" || pathname.startsWith("/edit/"),
   },
   {
     label: "Profile",
+    shortLabel: "Profile",
+    icon: "Profile",
     href: "/profile",
     match: (pathname) => pathname === "/profile",
   },
   {
     label: "Messages",
+    shortLabel: "Messages",
+    icon: "Chat",
     href: "/messages",
     match: (pathname) => pathname === "/messages" || pathname.startsWith("/messages/"),
   },
   {
     label: "Saved",
+    shortLabel: "Saved",
+    icon: "Saved",
     href: "/saved",
     match: (pathname) => pathname === "/saved",
   },
@@ -198,6 +214,10 @@ export const AppShell = ({ children, currentUser = null }: AppShellProps) => {
     );
   };
 
+  const mobileTabs = currentUser
+    ? navItems.filter((item) => ["/", "/listings", "/sell", "/messages", "/profile"].includes(item.href))
+    : navItems.filter((item) => ["/", "/listings", "/sell", "/messages", "/profile"].includes(item.href));
+
   return (
     <div className={styles.shell}>
       <header className={styles.siteHeader}>
@@ -255,6 +275,26 @@ export const AppShell = ({ children, currentUser = null }: AppShellProps) => {
       </nav>
 
       <main className={styles.main}>{children}</main>
+
+      <nav className={styles.bottomNav} aria-label="Mobile bottom navigation">
+        {mobileTabs.map((item) => {
+          const active = item.match(pathname);
+
+          return (
+            <a
+              key={item.href}
+              href={item.href}
+              className={active ? `${styles.bottomNavLink} ${styles.bottomNavLinkActive}` : styles.bottomNavLink}
+              aria-current={active ? "page" : undefined}
+            >
+              <span className={styles.bottomNavIcon} aria-hidden="true">
+                {item.icon}
+              </span>
+              <span className={styles.bottomNavLabel}>{item.shortLabel ?? item.label}</span>
+            </a>
+          );
+        })}
+      </nav>
     </div>
   );
 };

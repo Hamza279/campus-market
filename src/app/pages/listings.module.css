@@ -135,6 +135,43 @@
   box-shadow: 0 24px 46px rgba(68, 52, 35, 0.09);
 }
 
+.categoryChipsSection {
+  margin-bottom: 1rem;
+}
+
+.categoryChips {
+  display: flex;
+  gap: 0.65rem;
+  overflow-x: auto;
+  padding: 0.1rem 0 0.2rem;
+  scrollbar-width: none;
+}
+
+.categoryChips::-webkit-scrollbar {
+  display: none;
+}
+
+.categoryChip {
+  flex: 0 0 auto;
+  min-height: 2.7rem;
+  padding: 0.7rem 1rem;
+  border: 1px solid rgba(192, 162, 124, 0.22);
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.9);
+  color: #4a3829;
+  font: inherit;
+  font-size: 0.88rem;
+  font-weight: 800;
+  cursor: pointer;
+}
+
+.categoryChipActive {
+  border-color: rgba(201, 111, 59, 0.28);
+  background: linear-gradient(135deg, #fff0dc, #ffe1bf);
+  color: #a95426;
+  box-shadow: 0 12px 24px rgba(201, 111, 59, 0.12);
+}
+
 .featuredStripHeader h2 {
   margin: 0;
   color: #2d2218;
@@ -477,15 +514,61 @@
 
 @media (max-width: 640px) {
   .page {
-    padding: 1.5rem 1rem 2rem;
+    padding: 1.25rem 1rem 2rem;
   }
 
   .grid {
-    gap: 1rem;
+    gap: 0.85rem;
   }
 
   .marketOverview {
     grid-template-columns: 1fr;
+  }
+
+  .featuredStrip {
+    padding: 1rem;
+  }
+
+  .featuredMiniGrid {
+    display: flex;
+    overflow-x: auto;
+    gap: 0.85rem;
+    margin-right: -0.2rem;
+    padding-bottom: 0.2rem;
+    scrollbar-width: none;
+  }
+
+  .featuredMiniGrid::-webkit-scrollbar {
+    display: none;
+  }
+
+  .featuredMiniCard {
+    min-width: 15rem;
+  }
+
+  .categoryChipsSection {
+    margin-right: -1rem;
+    margin-left: -1rem;
+    padding: 0 1rem;
+  }
+
+  .filters {
+    position: sticky;
+    top: 5.15rem;
+    z-index: 25;
+    padding: 1rem;
+    margin-right: -1rem;
+    margin-left: -1rem;
+    border-radius: 1.15rem 1.15rem 1rem 1rem;
+  }
+
+  .filtersHeader {
+    margin-bottom: 0.8rem;
+    padding-bottom: 0.8rem;
+  }
+
+  .filtersHeader p {
+    font-size: 0.88rem;
   }
 
   .headerActions {
@@ -506,7 +589,6 @@
     justify-content: flex-start;
     white-space: normal;
   }
-
 }
 
 @keyframes shimmer {

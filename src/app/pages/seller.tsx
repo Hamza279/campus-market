@@ -53,7 +53,12 @@ export const SellerProfile = ({ sellerId }: SellerProfileProps) => {
         Back to Browse
       </a>
       <header className={styles.header}>
-        <h1>{sellerName}</h1>
+        <div className={styles.headerTop}>
+          <h1>{sellerName}</h1>
+          <a href="/messages" className={styles.profileAction}>
+            Message sellers
+          </a>
+        </div>
         <p className={styles.subtitle}>See who this seller is, where they like to meet, and what else they have listed on 505 Market.</p>
       </header>
 
@@ -65,9 +70,19 @@ export const SellerProfile = ({ sellerId }: SellerProfileProps) => {
         ) : (
           <div className={styles.avatar}>{sellerName.slice(0, 1).toUpperCase()}</div>
         )}
-        <div>
+        <div className={styles.profileContent}>
           <h2>About this seller</h2>
           <p>{sellerBio}</p>
+          <div className={styles.profileStats}>
+            <div>
+              <strong>{items.length}</strong>
+              <span>Listings</span>
+            </div>
+            <div>
+              <strong>{profile?.responseTime || "Fast"}</strong>
+              <span>Replies</span>
+            </div>
+          </div>
           <div className={styles.metaList}>
             <span>{profile?.campusAffiliation || "UNM or local community seller"}</span>
             <span>{profile?.neighborhood || "Neighborhood not shared yet"}</span>
@@ -80,7 +95,10 @@ export const SellerProfile = ({ sellerId }: SellerProfileProps) => {
       </section>
 
       <section className={styles.section}>
-        <h2>Listings from {sellerName}</h2>
+        <div className={styles.sectionHeader}>
+          <h2>Listings from {sellerName}</h2>
+          <span>{items.length} active</span>
+        </div>
         {!loaded ? <p>Loading seller listings...</p> : null}
         {loaded && items.length === 0 ? <p>This seller does not have any active listings right now.</p> : null}
         <div className={styles.grid}>

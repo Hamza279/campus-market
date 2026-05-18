@@ -764,6 +764,25 @@
     display: grid;
   }
 
+  .featuredGrid {
+    display: flex;
+    overflow-x: auto;
+    gap: 0.85rem;
+    margin-right: -1rem;
+    margin-left: -1rem;
+    padding: 0 1rem 0.2rem;
+    scrollbar-width: none;
+  }
+
+  .featuredGrid::-webkit-scrollbar {
+    display: none;
+  }
+
+  .featuredGrid > * {
+    min-width: 82vw;
+    flex: 0 0 auto;
+  }
+
   .primaryButton,
   .secondaryButton,
   .sectionButton {

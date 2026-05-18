@@ -503,6 +503,30 @@ export const Listings = () => {
 
       {error ? <p className={styles.errorMessage}>{error}</p> : null}
 
+      {categories.length > 0 ? (
+        <section className={styles.categoryChipsSection} aria-label="Browse by category">
+          <div className={styles.categoryChips}>
+            <button
+              type="button"
+              className={!categoryFilter ? `${styles.categoryChip} ${styles.categoryChipActive}` : styles.categoryChip}
+              onClick={() => setCategoryFilter("")}
+            >
+              For you
+            </button>
+            {categories.map((category) => (
+              <button
+                type="button"
+                key={category}
+                className={categoryFilter === category ? `${styles.categoryChip} ${styles.categoryChipActive}` : styles.categoryChip}
+                onClick={() => setCategoryFilter(category)}
+              >
+                {category}
+              </button>
+            ))}
+          </div>
+        </section>
+      ) : null}
+
       <section className={styles.filters} aria-label="Listing filters">
         <div className={styles.filtersHeader}>
           <div>
