@@ -1,14 +1,37 @@
+:global(:root) {
+  --market-bg: #fbf5ed;
+  --market-bg-soft: #fffaf4;
+  --market-surface: rgba(255, 252, 247, 0.88);
+  --market-card: rgba(255, 255, 255, 0.92);
+  --market-border: rgba(192, 162, 124, 0.18);
+  --market-border-strong: rgba(192, 162, 124, 0.28);
+  --market-shadow: 0 22px 50px rgba(68, 52, 35, 0.1);
+  --market-shadow-strong: 0 28px 64px rgba(68, 52, 35, 0.14);
+  --market-text: #2d2218;
+  --market-muted: #705a46;
+  --market-primary: #c96f3b;
+  --market-primary-strong: #a95426;
+  --market-accent: #f4c87a;
+}
+
 :global(body) {
   margin: 0;
-  background: #f5f7fb;
+  background:
+    radial-gradient(circle at top left, rgba(252, 211, 77, 0.18), transparent 26%),
+    radial-gradient(circle at top right, rgba(251, 146, 60, 0.14), transparent 24%),
+    linear-gradient(180deg, #fffaf4 0%, #f8efe3 45%, #f5ecde 100%);
   font-family:
-    Inter, ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+    "Avenir Next", "Segoe UI", ui-sans-serif, system-ui, -apple-system, BlinkMacSystemFont, sans-serif;
+  color: var(--market-text);
 }
 
 .shell {
   min-height: 100vh;
-  background: #f5f7fb;
-  color: #111827;
+  background:
+    radial-gradient(circle at 8% 20%, rgba(251, 191, 36, 0.12), transparent 20%),
+    radial-gradient(circle at 92% 12%, rgba(249, 115, 22, 0.12), transparent 20%),
+    linear-gradient(180deg, rgba(255, 250, 244, 0.9), rgba(248, 239, 227, 0.92));
+  color: var(--market-text);
 }
 
 .siteHeader {
@@ -19,21 +42,24 @@
   align-items: center;
   justify-content: space-between;
   gap: 1.5rem;
-  min-height: 4.75rem;
-  padding: 0 1.75rem;
-  border-bottom: 1px solid rgba(148, 163, 184, 0.32);
-  background: rgba(255, 255, 255, 0.96);
-  box-shadow: 0 16px 32px rgba(15, 23, 42, 0.06);
-  backdrop-filter: blur(14px);
+  width: min(calc(100% - 2rem), 78rem);
+  min-height: 4.85rem;
+  margin: 1rem auto 0;
+  padding: 0 1.1rem 0 1.35rem;
+  border: 1px solid var(--market-border);
+  border-radius: 1.35rem;
+  background: rgba(255, 251, 246, 0.82);
+  box-shadow: var(--market-shadow);
+  backdrop-filter: blur(18px);
 }
 
 .brand {
   display: inline-flex;
   align-items: center;
   gap: 0.75rem;
-  color: #0f172a;
+  color: var(--market-text);
   text-decoration: none;
-  font-size: 1.05rem;
+  font-size: 1.08rem;
   font-weight: 900;
   white-space: nowrap;
 }
@@ -43,11 +69,12 @@
   place-items: center;
   width: 2.45rem;
   height: 2.45rem;
-  border-radius: 0.75rem;
-  background: linear-gradient(135deg, #2563eb, #14b8a6);
+  border-radius: 0.9rem;
+  background: linear-gradient(135deg, #cc6b33, #f0b24d);
   color: #ffffff;
-  font-size: 0.82rem;
+  font-size: 0.8rem;
   letter-spacing: 0;
+  box-shadow: 0 14px 28px rgba(201, 111, 59, 0.28);
 }
 
 .desktopNav {
@@ -69,36 +96,38 @@
   min-height: 2.45rem;
   padding: 0.55rem 0.85rem;
   border-radius: 999px;
-  color: #334155;
+  color: var(--market-muted);
   font: inherit;
   font-size: 0.92rem;
   font-weight: 800;
   text-decoration: none;
   white-space: nowrap;
-  transition: background 150ms ease, color 150ms ease, border-color 150ms ease;
+  transition: background 150ms ease, color 150ms ease, border-color 150ms ease, transform 150ms ease,
+    box-shadow 150ms ease;
 }
 
 .navLink:hover,
 .activeLink {
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: rgba(255, 237, 213, 0.9);
+  color: var(--market-primary-strong);
 }
 
 .activeLink {
-  box-shadow: inset 0 0 0 1px rgba(37, 99, 235, 0.12);
+  box-shadow: inset 0 0 0 1px rgba(201, 111, 59, 0.16);
 }
 
 .authButton {
-  border: 1px solid #cbd5e1;
-  background: #ffffff;
+  border: 1px solid var(--market-border-strong);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(255, 248, 240, 0.96));
   cursor: pointer;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 10px 22px rgba(96, 71, 47, 0.08);
 }
 
 .authButton:hover {
-  border-color: #93c5fd;
-  background: #eff6ff;
-  color: #1d4ed8;
+  border-color: rgba(201, 111, 59, 0.34);
+  background: linear-gradient(180deg, #fff7ef, #ffefd7);
+  color: var(--market-primary-strong);
+  transform: translateY(-1px);
 }
 
 .userMenu {
@@ -107,10 +136,10 @@
   gap: 0.7rem;
   min-width: 0;
   padding: 0.3rem 0.35rem 0.3rem 0.65rem;
-  border: 1px solid #e2e8f0;
+  border: 1px solid var(--market-border);
   border-radius: 999px;
-  background: #ffffff;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.05);
+  background: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 10px 22px rgba(96, 71, 47, 0.08);
 }
 
 .avatar,
@@ -128,8 +157,8 @@
 .avatarFallback {
   display: grid;
   place-items: center;
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: linear-gradient(135deg, #ffd9b8, #f4c87a);
+  color: #7a3d16;
   font-size: 0.82rem;
   font-weight: 900;
 }
@@ -137,7 +166,7 @@
 .userLabel {
   max-width: 11rem;
   overflow: hidden;
-  color: #334155;
+  color: var(--market-muted);
   font-size: 0.88rem;
   font-weight: 850;
   text-overflow: ellipsis;
@@ -150,12 +179,12 @@
   width: 2.75rem;
   height: 2.75rem;
   flex: 0 0 auto;
-  border: 1px solid #cbd5e1;
+  border: 1px solid var(--market-border-strong);
   border-radius: 0.85rem;
-  background: #ffffff;
+  background: rgba(255, 255, 255, 0.92);
   cursor: pointer;
   padding: 0.55rem;
-  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 10px 22px rgba(96, 71, 47, 0.08);
   transition: background 150ms ease, border-color 150ms ease, box-shadow 150ms ease, transform 150ms ease;
 }
 
@@ -165,19 +194,19 @@
   height: 2px;
   margin: 0.26rem auto;
   border-radius: 999px;
-  background: #0f172a;
+  background: var(--market-text);
   transform-origin: center;
   transition: background 150ms ease, transform 180ms ease, opacity 180ms ease;
 }
 
 .menuButton:hover {
-  border-color: #93c5fd;
-  background: #eff6ff;
-  box-shadow: 0 10px 22px rgba(37, 99, 235, 0.12);
+  border-color: rgba(201, 111, 59, 0.34);
+  background: #fff3e1;
+  box-shadow: 0 14px 28px rgba(201, 111, 59, 0.16);
 }
 
 .menuButton:hover span {
-  background: #1d4ed8;
+  background: var(--market-primary-strong);
 }
 
 .menuButton:active {
@@ -185,8 +214,8 @@
 }
 
 .menuButton[aria-expanded="true"] {
-  border-color: #93c5fd;
-  background: #dbeafe;
+  border-color: rgba(201, 111, 59, 0.34);
+  background: #ffe8cf;
 }
 
 .menuButton[aria-expanded="true"] .menuBar:nth-child(1) {
@@ -202,7 +231,7 @@
 }
 
 .menuButton:focus-visible {
-  outline: 3px solid rgba(37, 99, 235, 0.28);
+  outline: 3px solid rgba(201, 111, 59, 0.24);
   outline-offset: 3px;
 }
 
@@ -215,11 +244,11 @@
   gap: 0.35rem;
   width: min(22rem, calc(100vw - 2rem));
   padding: 0.65rem;
-  border: 1px solid rgba(148, 163, 184, 0.34);
-  border-radius: 1.1rem;
-  background: rgba(255, 255, 255, 0.98);
-  box-shadow: 0 24px 48px rgba(15, 23, 42, 0.16);
-  backdrop-filter: blur(14px);
+  border: 1px solid var(--market-border);
+  border-radius: 1.2rem;
+  background: rgba(255, 251, 246, 0.96);
+  box-shadow: var(--market-shadow-strong);
+  backdrop-filter: blur(18px);
   opacity: 0;
   pointer-events: none;
   transform: translateY(-0.5rem) scale(0.98);
@@ -232,7 +261,7 @@
   position: fixed;
   inset: 0;
   z-index: 900;
-  background: rgba(15, 23, 42, 0.18);
+  background: rgba(75, 54, 36, 0.22);
   opacity: 0;
   pointer-events: none;
   transition: opacity 180ms ease;
@@ -250,7 +279,7 @@
 }
 
 .mobileNavTitle {
-  color: #0f172a;
+  color: var(--market-text);
   font-size: 0.78rem;
   font-weight: 950;
   text-transform: uppercase;
@@ -259,7 +288,7 @@
 .mobileNavSubtitle {
   min-width: 0;
   overflow: hidden;
-  color: #64748b;
+  color: var(--market-muted);
   font-size: 0.9rem;
   font-weight: 750;
   text-overflow: ellipsis;
@@ -280,38 +309,40 @@
   min-height: 3rem;
   padding: 0.8rem 0.95rem;
   border-radius: 0.8rem;
-  color: #1f2937;
+  color: var(--market-text);
   font-size: 0.95rem;
   transition: background 150ms ease, color 150ms ease, transform 150ms ease;
 }
 
 .mobileNav .navLink:hover,
 .mobileAuthButton:hover {
-  background: #eff6ff;
-  color: #1d4ed8;
+  background: #fff0dc;
+  color: var(--market-primary-strong);
   transform: translateX(2px);
 }
 
 .mobileNav .activeLink {
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: #ffe5c6;
+  color: var(--market-primary-strong);
 }
 
 .mobileNav .navLink:active,
 .mobileAuthButton:active {
-  background: #bfdbfe;
-  color: #1e40af;
+  background: #ffd7ad;
+  color: #7a3d16;
   transform: translateX(2px) scale(0.99);
 }
 
 .main {
   min-width: 0;
+  padding-top: 1rem;
 }
 
 @media (max-width: 980px) {
   .siteHeader {
+    width: calc(100% - 1.5rem);
     min-height: 4.25rem;
-    padding: 0 1rem;
+    padding: 0 0.9rem;
   }
 
   .desktopNav {

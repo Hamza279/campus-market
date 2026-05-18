@@ -1,8 +1,8 @@
 .page {
   max-width: 920px;
   margin: 0 auto;
-  padding: 2.25rem 1.5rem 3.25rem;
-  color: #111827;
+  padding: 2.5rem 1.5rem 3.5rem;
+  color: #2d2218;
   min-height: 100vh;
 }
 
@@ -18,7 +18,7 @@
 
 .subtitle {
   margin: 0.75rem 0 0;
-  color: #475569;
+  color: #705a46;
   max-width: 42rem;
   line-height: 1.7;
 }
@@ -36,21 +36,23 @@
   gap: 0.85rem;
   align-items: start;
   padding: 1rem;
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  border-radius: 1rem;
-  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
-  box-shadow: 0 16px 30px rgba(15, 23, 42, 0.05);
+  border: 1px solid rgba(192, 162, 124, 0.18);
+  border-radius: 1.15rem;
+  background:
+    radial-gradient(circle at top right, rgba(244, 200, 122, 0.14), transparent 28%),
+    linear-gradient(180deg, rgba(255, 255, 255, 0.96) 0%, rgba(255, 247, 237, 0.96) 100%);
+  box-shadow: 0 20px 40px rgba(68, 52, 35, 0.08);
 }
 
 .stepCard h2 {
   margin: 0;
   font-size: 1rem;
-  color: #0f172a;
+  color: #2d2218;
 }
 
 .stepCard p {
   margin: 0.35rem 0 0;
-  color: #64748b;
+  color: #705a46;
   line-height: 1.6;
 }
 
@@ -60,45 +62,45 @@
   width: 2rem;
   height: 2rem;
   border-radius: 999px;
-  background: #dbeafe;
-  color: #1d4ed8;
+  background: linear-gradient(135deg, #ffd9b8, #f4c87a);
+  color: #7a3d16;
   font-weight: 900;
 }
 
 .form {
   display: grid;
   gap: 1.35rem;
-  padding: 1.5rem;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  border-radius: 0.95rem;
-  background: #ffffff;
-  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.06);
+  padding: 1.6rem;
+  border: 1px solid rgba(192, 162, 124, 0.2);
+  border-radius: 1.35rem;
+  background: linear-gradient(180deg, rgba(255, 253, 249, 0.95), rgba(255, 247, 237, 0.96));
+  box-shadow: 0 24px 52px rgba(68, 52, 35, 0.1);
 }
 
 .formSection {
   display: grid;
   gap: 1rem;
-  padding: 1.1rem;
-  border: 1px solid rgba(148, 163, 184, 0.22);
-  border-radius: 1rem;
-  background: #f8fafc;
+  padding: 1.2rem;
+  border: 1px solid rgba(192, 162, 124, 0.16);
+  border-radius: 1.15rem;
+  background: rgba(255, 255, 255, 0.55);
 }
 
 .sectionIntro h2 {
   margin: 0;
-  color: #0f172a;
+  color: #2d2218;
   font-size: 1.15rem;
 }
 
 .sectionIntro p {
   margin: 0.45rem 0 0;
-  color: #64748b;
+  color: #705a46;
   line-height: 1.65;
 }
 
 .sectionEyebrow {
   margin: 0 0 0.35rem;
-  color: #2563eb;
+  color: #c96f3b;
   font-size: 0.78rem;
   font-weight: 900;
   text-transform: uppercase;
@@ -119,17 +121,17 @@
 .label,
 label {
   font-weight: 700;
-  color: #0f172a;
+  color: #2d2218;
 }
 
 input,
 select,
 textarea {
   width: 100%;
-  border-radius: 0.75rem;
-  border: 1px solid #d1d5db;
-  background: #ffffff;
-  color: #111827;
+  border-radius: 0.95rem;
+  border: 1px solid rgba(192, 162, 124, 0.24);
+  background: rgba(255, 255, 255, 0.92);
+  color: #2d2218;
   padding: 0.95rem 1rem;
   font-size: 1rem;
   outline: none;
@@ -139,8 +141,8 @@ textarea {
 input:focus,
 select:focus,
 textarea:focus {
-  border-color: #93c5fd;
-  box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.12);
+  border-color: rgba(201, 111, 59, 0.36);
+  box-shadow: 0 0 0 4px rgba(244, 200, 122, 0.22);
 }
 
 input[aria-invalid="true"],
@@ -169,7 +171,7 @@ textarea {
 }
 
 .characterCount {
-  color: #64748b;
+  color: #8a715d;
   font-size: 0.9rem;
   font-weight: 700;
 }
@@ -184,7 +186,7 @@ textarea {
 
 .helperText {
   margin: -0.15rem 0 0;
-  color: #64748b;
+  color: #705a46;
   font-size: 0.88rem;
   line-height: 1.5;
 }
@@ -197,14 +199,14 @@ textarea {
   align-items: center;
   padding: 1rem;
   border: 1px solid #bbf7d0;
-  border-radius: 1rem;
-  background: #f0fdf4;
-  color: #166534;
+  border-radius: 1.1rem;
+  background: linear-gradient(135deg, #eef8ef, #f9fff9);
+  color: #2d6b47;
   font-weight: 800;
 }
 
 .successMessage a {
-  color: #1d4ed8;
+  color: #a95426;
   text-decoration: none;
 }
 
@@ -215,8 +217,8 @@ textarea {
 .imagePlaceholder {
   min-height: 220px;
   border-radius: 0.9rem;
-  border: 1px dashed rgba(148, 163, 184, 0.7);
-  background: #f8fafc;
+  border: 1px dashed rgba(192, 162, 124, 0.32);
+  background: #fff8ee;
   display: grid;
   place-items: center;
   color: #475569;
@@ -237,16 +239,17 @@ textarea {
   grid-template-columns: minmax(0, 1fr) minmax(18rem, 0.95fr);
   gap: 1rem;
   padding: 1rem;
-  border: 1px solid rgba(148, 163, 184, 0.28);
-  border-radius: 1rem;
-  background: #ffffff;
+  border: 1px solid rgba(192, 162, 124, 0.18);
+  border-radius: 1.15rem;
+  background: rgba(255, 255, 255, 0.88);
+  box-shadow: 0 16px 30px rgba(96, 71, 47, 0.08);
 }
 
 .previewImageFrame {
   min-height: 240px;
   overflow: hidden;
   border-radius: 0.95rem;
-  background: #eff6ff;
+  background: linear-gradient(135deg, #ffe9cb, #ffd5bf);
 }
 
 .previewCopy {
@@ -257,7 +260,7 @@ textarea {
 
 .previewEyebrow {
   margin: 0;
-  color: #2563eb;
+  color: #c96f3b;
   font-size: 0.76rem;
   font-weight: 900;
   text-transform: uppercase;
@@ -272,7 +275,7 @@ textarea {
 
 .previewTopline strong,
 .previewTopline span {
-  color: #0f172a;
+  color: #2d2218;
 }
 
 .previewTopline strong {
@@ -285,7 +288,7 @@ textarea {
 
 .previewCopy p:last-child {
   margin: 0;
-  color: #475569;
+  color: #705a46;
   line-height: 1.7;
 }
 
@@ -301,8 +304,8 @@ textarea {
   min-height: 2rem;
   padding: 0.45rem 0.7rem;
   border-radius: 999px;
-  background: #eff6ff;
-  color: #1d4ed8;
+  background: #fff0dc;
+  color: #9a4e20;
   font-size: 0.86rem;
   font-weight: 800;
 }
@@ -314,10 +317,10 @@ textarea {
   align-content: center;
   min-height: 9rem;
   padding: 1rem;
-  border: 2px dashed #93c5fd;
-  border-radius: 0.9rem;
-  background: #eff6ff;
-  color: #1e3a8a;
+  border: 2px dashed rgba(201, 111, 59, 0.3);
+  border-radius: 1rem;
+  background: linear-gradient(135deg, #fff7eb, #fff0dc);
+  color: #7a3d16;
   text-align: center;
 }
 
@@ -335,27 +338,27 @@ textarea {
 }
 
 .dropZone span {
-  color: #475569;
+  color: #705a46;
   font-size: 0.92rem;
 }
 
 .dropZoneActive {
-  border-color: #2563eb;
-  background: #dbeafe;
+  border-color: #c96f3b;
+  background: #ffe7cc;
 }
 
 .progressTrack {
   overflow: hidden;
   height: 0.5rem;
   border-radius: 999px;
-  background: #bfdbfe;
+  background: #f8dfb5;
 }
 
 .progressTrack span {
   display: block;
   height: 100%;
   border-radius: inherit;
-  background: #2563eb;
+  background: linear-gradient(90deg, #c96f3b, #f0b24d);
   transition: width 160ms ease;
 }
 
@@ -364,17 +367,18 @@ textarea {
   min-height: 3rem;
   padding: 0.95rem 1.4rem;
   border: none;
-  border-radius: 0.8rem;
-  background: #2563eb;
+  border-radius: 1rem;
+  background: linear-gradient(135deg, #c96f3b, #a95426);
   color: white;
   font: inherit;
   font-weight: 800;
   cursor: pointer;
   transition: transform 150ms ease, background 150ms ease;
+  box-shadow: 0 18px 34px rgba(169, 84, 38, 0.24);
 }
 
 .submitButton:hover {
-  background: #1d4ed8;
+  background: linear-gradient(135deg, #d87c45, #b85d2b);
   transform: translateY(-1px);
 }
 

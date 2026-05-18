@@ -1,10 +1,10 @@
 .card {
   min-width: 0;
-  border: 1px solid rgba(148, 163, 184, 0.35);
-  border-radius: 1rem;
+  border: 1px solid rgba(192, 162, 124, 0.2);
+  border-radius: 1.35rem;
   overflow: hidden;
-  background: #ffffff;
-  box-shadow: 0 18px 38px rgba(15, 23, 42, 0.08);
+  background: linear-gradient(180deg, rgba(255, 255, 255, 0.95), rgba(255, 250, 244, 0.96));
+  box-shadow: 0 24px 48px rgba(68, 52, 35, 0.1);
   display: flex;
   flex-direction: column;
   animation: cardEnter 320ms ease both;
@@ -12,9 +12,9 @@
 }
 
 .card:hover {
-  transform: translateY(-4px);
-  border-color: rgba(37, 99, 235, 0.24);
-  box-shadow: 0 26px 56px rgba(15, 23, 42, 0.14);
+  transform: translateY(-6px);
+  border-color: rgba(201, 111, 59, 0.28);
+  box-shadow: 0 30px 60px rgba(68, 52, 35, 0.16);
 }
 
 .cardHighlighted {
@@ -23,14 +23,14 @@
 }
 
 .sellerCard {
-  box-shadow: 0 16px 34px rgba(15, 23, 42, 0.06);
+  box-shadow: 0 20px 42px rgba(68, 52, 35, 0.08);
 }
 
 .imageLink {
   position: relative;
   display: block;
-  height: 196px;
-  background: #eff6ff;
+  height: 208px;
+  background: linear-gradient(135deg, #ffe9cb, #ffd5bf);
   overflow: hidden;
 }
 
@@ -49,7 +49,7 @@
 .imageOverlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(180deg, rgba(15, 23, 42, 0.02), rgba(15, 23, 42, 0.34));
+  background: linear-gradient(180deg, rgba(45, 34, 24, 0.04), rgba(45, 34, 24, 0.42));
   pointer-events: none;
 }
 
@@ -71,15 +71,15 @@
 .pricePill {
   right: 0.8rem;
   bottom: 0.8rem;
-  background: #ffffff;
-  color: #0f172a;
-  box-shadow: 0 10px 24px rgba(15, 23, 42, 0.22);
+  background: rgba(255, 252, 247, 0.96);
+  color: #2d2218;
+  box-shadow: 0 14px 28px rgba(68, 52, 35, 0.18);
 }
 
 .featuredPill {
   top: 0.8rem;
   left: 0.8rem;
-  background: rgba(15, 23, 42, 0.82);
+  background: rgba(201, 111, 59, 0.9);
   color: #ffffff;
   backdrop-filter: blur(10px);
 }
@@ -89,7 +89,7 @@
   flex: 1;
   flex-direction: column;
   gap: 0.95rem;
-  padding: 1.25rem;
+  padding: 1.3rem;
 }
 
 .header {
@@ -106,13 +106,13 @@
 }
 
 .titleLink:hover {
-  color: #1d4ed8;
+  color: #a95426;
 }
 
 .title {
   margin: 0;
-  color: #0f172a;
-  font-size: 1.08rem;
+  color: #2d2218;
+  font-size: 1.1rem;
   line-height: 1.35;
 }
 
@@ -128,15 +128,15 @@
 }
 
 .price {
-  color: #0f172a;
-  font-size: 1.25rem;
+  color: #2d2218;
+  font-size: 1.28rem;
   font-weight: 900;
   line-height: 1;
 }
 
 .description {
   margin: 0;
-  color: #475569;
+  color: #705a46;
   font-size: 0.95rem;
   line-height: 1.6;
   display: -webkit-box;
@@ -168,23 +168,23 @@
 }
 
 .categoryBadge {
-  background: #ecfeff;
-  color: #155e75;
+  background: #fff0dc;
+  color: #9a4e20;
 }
 
 .conditionBadge {
-  background: #eef2ff;
-  color: #3730a3;
+  background: #fff8ee;
+  color: #6f5640;
 }
 
 .activeBadge {
-  background: #dcfce7;
-  color: #166534;
+  background: #e9f7ef;
+  color: #2d6b47;
 }
 
 .soldBadge {
-  background: #fee2e2;
-  color: #991b1b;
+  background: #fbe7df;
+  color: #9c4024;
 }
 
 .metaGrid {
@@ -200,7 +200,7 @@
 }
 
 .metaGrid dt {
-  color: #64748b;
+  color: #9a826e;
   font-size: 0.75rem;
   font-weight: 850;
   text-transform: uppercase;
@@ -208,7 +208,7 @@
 
 .metaGrid dd {
   margin: 0.2rem 0 0;
-  color: #334155;
+  color: #4a3829;
   font-size: 0.9rem;
   line-height: 1.4;
 }
@@ -220,8 +220,8 @@
   align-items: center;
   justify-content: flex-end;
   padding: 1rem 1.25rem 1.25rem;
-  border-top: 1px solid #e2e8f0;
-  background: linear-gradient(180deg, rgba(248, 250, 252, 0.3), rgba(248, 250, 252, 0.9));
+  border-top: 1px solid rgba(192, 162, 124, 0.16);
+  background: linear-gradient(180deg, rgba(255, 248, 240, 0.2), rgba(255, 248, 240, 0.9));
 }
 
 @media (max-width: 640px) {
