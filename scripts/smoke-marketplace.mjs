@@ -39,6 +39,11 @@ const request = async (path, init = {}) => {
   return response;
 };
 
+const tinyPng = Buffer.from(
+  "iVBORw0KGgoAAAANSUhEUgAAAAEAAAABCAQAAAC1HAwCAAAAC0lEQVR42mP8/x8AAusB9Wn8n2wAAAAASUVORK5CYII=",
+  "base64",
+);
+
 const assertOk = async (label, response) => {
   if (!response.ok) {
     throw new Error(`${label} failed: ${response.status} ${await response.text()}`);
@@ -85,6 +90,20 @@ console.log("ok - login creates session");
 await assertOk("dashboard with session", await request("/dashboard"));
 await assertOk("dashboard after refresh with same session", await request("/dashboard"));
 
+const uploadForm = new FormData();
+uploadForm.set("image", new File([tinyPng], "smoke-image.png", { type: "image/png" }));
+uploadForm.set("thumbnail", new File([tinyPng], "smoke-thumb.png", { type: "image/png" }));
+
+const uploadResponse = await request("/api/uploads/listing-image", {
+  method: "POST",
+  headers: {
+    Accept: "application/json",
+  },
+  body: uploadForm,
+});
+await assertOk("upload listing image", uploadResponse);
+const uploadedImage = await uploadResponse.json();
+
 const createResponse = await request("/api/listings", {
   method: "POST",
   headers: {
@@ -98,13 +117,28 @@ const createResponse = await request("/api/listings", {
     condition: "Good",
     category: "Supplies",
     description: "Temporary smoke-test listing.",
-    image: "",
-    imageUrl: "",
+    image: uploadedImage.imageUrl,
+    imageUrl: uploadedImage.imageUrl,
+    imageKey: uploadedImage.imageKey,
+    thumbnailUrl: uploadedImage.thumbnailUrl,
+    thumbnailKey: uploadedImage.thumbnailKey,
     status: "active",
   }),
 });
 await assertOk("create seller listing", createResponse);
 const createdListing = await createResponse.json();
+if (!createdListing.imageUrl || !createdListing.imageKey || !createdListing.thumbnailUrl || !createdListing.thumbnailKey) {
+  throw new Error("created listing did not persist uploaded image fields");
+}
+console.log("ok - listing image fields persisted");
+
+const publicListingsResponse = await request("/api/listings");
+await assertOk("public listings include created item", publicListingsResponse);
+const publicListings = await publicListingsResponse.json();
+if (!publicListings.some((listing) => listing.id === createdListing.id)) {
+  throw new Error("created listing was not found in public listings");
+}
+console.log("ok - public listings contain created listing");
 
 const updateResponse = await request(`/api/listings/${createdListing.id}`, {
   method: "PUT",

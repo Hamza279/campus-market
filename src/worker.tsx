@@ -323,7 +323,15 @@ const ensureMarketplaceSchema = (db: D1Database) => {
 };
 
 const json = (data: unknown, init?: ResponseInit) => {
-  return Response.json(data, init);
+  const headers = new Headers(init?.headers);
+  if (!headers.has("Cache-Control")) {
+    headers.set("Cache-Control", "no-store, no-cache, must-revalidate");
+  }
+
+  return Response.json(data, {
+    ...init,
+    headers,
+  });
 };
 
 const headersToRecord = (headers: Headers): Record<string, string> => {

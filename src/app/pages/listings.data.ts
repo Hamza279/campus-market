@@ -46,10 +46,21 @@ const logFetchRequest = (method: string, url: string) => {
 
 const fetchWithDebug = async (url: string, init: RequestInit): Promise<Response> => {
   const method = init.method ?? "GET";
+  const requestInit =
+    method === "GET"
+      ? {
+          ...init,
+          cache: "no-store" as RequestCache,
+          headers: {
+            Accept: "application/json",
+            ...(init.headers ?? {}),
+          },
+        }
+      : init;
   logFetchRequest(method, url);
 
   try {
-    return await fetch(url, init);
+    return await fetch(url, requestInit);
   } catch (error) {
     const message = error instanceof Error ? error.message : "Unknown fetch failure";
     throw new Error(`Network error during ${method} ${url}: ${message}`);

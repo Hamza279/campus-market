@@ -4,8 +4,7 @@ import { useState } from "react";
 import styles from "./sell.module.css";
 import { getListingImageSrc } from "./image-url";
 import { createImageThumbnail, getImageFileValidationError, IMAGE_UPLOAD_ACCEPT } from "./image-upload";
-import { createListing } from "./sell.functions";
-import { uploadListingImage, type UploadedListingImage } from "./listings.data";
+import { addListing, uploadListingImage, type UploadedListingImage } from "./listings.data";
 
 interface SellForm {
   title: string;
@@ -171,7 +170,7 @@ export const Sell = () => {
     setCreatedListingId(null);
 
     try {
-      const newListing = await createListing({
+      const newListing = await addListing({
         title: form.title.trim(),
         price: `$${Number.parseFloat(form.price).toFixed(2)}`,
         location: form.location.trim(),
