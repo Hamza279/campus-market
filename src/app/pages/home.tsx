@@ -4,6 +4,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { useSyncedState } from "rwsdk/use-synced-state/client";
 import { ListingCard } from "@/app/shared/ListingCard";
 import styles from "./home.module.css";
+import { getListingImageSrc } from "./image-url";
 import { getListings, type Listing } from "./listings.data";
 import { LISTINGS_REALTIME_ROOM, NEW_LISTING_EVENT_KEY, type NewListingEvent } from "./listings.realtime";
 
@@ -88,6 +89,7 @@ export const Home = () => {
   }, [items]);
 
   const heroListing = featuredListings[0];
+  const heroListingImage = getListingImageSrc(heroListing?.thumbnailUrl || heroListing?.imageUrl || heroListing?.image || "");
 
   return (
     <div className={styles.page}>
@@ -115,6 +117,8 @@ export const Home = () => {
               <span className={styles.heroCardKicker}>Fresh on CampusMarket</span>
             </div>
             <div className={loadingListings ? `${styles.heroListing} ${styles.heroListingLoading}` : styles.heroListing}>
+              <img src={heroListingImage} alt={heroListing?.title ?? "Featured CampusMarket listing"} className={styles.heroListingImage} />
+              <span className={styles.heroListingOverlay} />
               <span className={styles.heroListingTag}>{heroListing?.category ?? "Fresh listings"}</span>
               <strong className={styles.heroListingTitle}>{heroListing?.title ?? "New campus finds"}</strong>
               <span className={styles.heroListingMeta}>

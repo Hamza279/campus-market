@@ -141,16 +141,43 @@
 }
 
 .heroListing {
+  position: relative;
   display: grid;
   gap: 0.6rem;
   min-height: 18rem;
   align-content: end;
+  overflow: hidden;
   border-radius: 1rem;
   background:
     linear-gradient(160deg, rgba(15, 23, 42, 0.78), rgba(37, 99, 235, 0.45)),
     linear-gradient(135deg, #bfdbfe, #ccfbf1);
   padding: 1.2rem;
   color: #ffffff;
+}
+
+.heroListing > * {
+  position: relative;
+  z-index: 1;
+}
+
+.heroListingImage,
+.heroListingOverlay {
+  position: absolute;
+  inset: 0;
+}
+
+.heroListingImage {
+  z-index: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+
+.heroListingOverlay {
+  z-index: 0;
+  background:
+    linear-gradient(180deg, rgba(15, 23, 42, 0.08), rgba(15, 23, 42, 0.76)),
+    linear-gradient(135deg, rgba(37, 99, 235, 0.12), rgba(20, 184, 166, 0.1));
 }
 
 .heroListingLoading {
