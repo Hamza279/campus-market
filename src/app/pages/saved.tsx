@@ -48,6 +48,7 @@ export const SavedItems = () => {
   return (
     <div className={styles.page}>
       <header className={styles.header}>
+        <p className={styles.eyebrow}>Saved for later</p>
         <h1>Saved items</h1>
         <p className={styles.subtitle}>Keep track of listings you want to revisit, compare, or message about later.</p>
       </header>
@@ -61,11 +62,17 @@ export const SavedItems = () => {
         </section>
       ) : items.length === 0 ? (
         <section className={styles.panel}>
+          <p className={styles.panelEyebrow}>Nothing saved yet</p>
           <h2>You have not saved anything yet</h2>
           <p>When you find something you like on Browse, save it and it will show up here across devices.</p>
-          <a href="/listings" className={styles.actionLink}>
-            Browse listings
-          </a>
+          <div className={styles.actionRow}>
+            <a href="/listings" className={styles.actionLink}>
+              Browse listings
+            </a>
+            <a href="/" className={styles.secondaryLink}>
+              Go to Home
+            </a>
+          </div>
         </section>
       ) : (
         <section className={styles.grid} aria-label="Saved listings">

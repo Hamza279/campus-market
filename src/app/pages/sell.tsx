@@ -24,6 +24,23 @@ type SellFormErrors = Partial<Record<keyof SellForm, string>>;
 const CONDITION_OPTIONS = ["New", "Like New", "Good", "Fair", "Used"] as const;
 const CATEGORY_OPTIONS = ["Books", "Electronics", "Furniture", "Clothing", "Transportation", "Supplies", "Other"] as const;
 const DESCRIPTION_LIMIT = 500;
+const SELL_STEPS = [
+  {
+    number: "1",
+    title: "Add the basics",
+    text: "Start with a clear title, fair price, and a meetup area buyers already know.",
+  },
+  {
+    number: "2",
+    title: "Show the item clearly",
+    text: "Upload one strong photo and describe condition, accessories, and pickup details.",
+  },
+  {
+    number: "3",
+    title: "Post and share",
+    text: "Your listing will appear on Browse, Home, and your selling hub after you submit.",
+  },
+] as const;
 
 export const Sell = () => {
   const [form, setForm] = useState<SellForm>({
@@ -48,6 +65,13 @@ export const Sell = () => {
   const [createdListingId, setCreatedListingId] = useState<string | null>(null);
   const previewImageUrl = getListingImageSrc(form.thumbnailUrl || form.imageUrl);
   const descriptionCount = form.description.length;
+  const previewTitle = form.title.trim() || "Your listing preview";
+  const previewPrice = form.price.trim() ? `$${Number.parseFloat(form.price || "0").toFixed(2)}` : "$0.00";
+  const previewCategory = form.category || "Category";
+  const previewCondition = form.condition || "Condition";
+  const previewLocation = form.location.trim() || "Meetup location";
+  const previewDescription =
+    form.description.trim() || "Add a few lines describing what buyers will get, the condition, and how pickup works.";
 
   const validateForm = (): SellFormErrors => {
     const errors: SellFormErrors = {};
@@ -213,17 +237,36 @@ export const Sell = () => {
         <p className={styles.subtitle}>Fill out a few simple details and your item will appear on Browse, Home, and your selling hub.</p>
       </header>
 
+      <section className={styles.stepsPanel} aria-label="How listing works">
+        {SELL_STEPS.map((step) => (
+          <article key={step.number} className={styles.stepCard}>
+            <span className={styles.stepNumber}>{step.number}</span>
+            <div>
+              <h2>{step.title}</h2>
+              <p>{step.text}</p>
+            </div>
+          </article>
+        ))}
+      </section>
+
       <form className={styles.form} onSubmit={handleSubmit}>
         {successMessage ? (
           <div className={styles.successMessage}>
-            <span>{successMessage}</span>
+            <span>Your item is live. It now appears on Browse, Home, and your selling hub.</span>
             {createdListingId ? <a href={`/listings/${createdListingId}`}>View listing</a> : null}
             <a href="/dashboard">Open your selling hub</a>
             <a href="/listings">See it on Browse</a>
           </div>
         ) : null}
 
-        <div className={styles.formRow}>
+        <section className={styles.formSection} aria-labelledby="sell-step-basics">
+          <div className={styles.sectionIntro}>
+            <p className={styles.sectionEyebrow}>Step 1</p>
+            <h2 id="sell-step-basics">Add the basics buyers need first</h2>
+            <p>Keep it simple: what it is, how much it costs, and where you can meet.</p>
+          </div>
+
+          <div className={styles.formRow}>
           <label htmlFor="title">Title</label>
           <p className={styles.helperText}>Use the words a buyer would search for first.</p>
           <input
@@ -236,150 +279,183 @@ export const Sell = () => {
             aria-invalid={fieldErrors.title ? "true" : "false"}
           />
           {fieldErrors.title ? <p className={styles.fieldError}>{fieldErrors.title}</p> : null}
-        </div>
+          </div>
 
-        <div className={styles.formRowGroup}>
-          <div className={styles.formRowHalf}>
-            <label htmlFor="price">Price</label>
-            <p className={styles.helperText}>Numbers only. We will format it as a dollar amount.</p>
-            <input
-              id="price"
-              name="price"
-              type="text"
-              inputMode="decimal"
-              value={form.price}
+          <div className={styles.formRowGroup}>
+            <div className={styles.formRowHalf}>
+              <label htmlFor="price">Price</label>
+              <p className={styles.helperText}>Numbers only. We will format it as a dollar amount.</p>
+              <input
+                id="price"
+                name="price"
+                type="text"
+                inputMode="decimal"
+                value={form.price}
+                onChange={handleChange}
+                placeholder="45.00"
+                aria-invalid={fieldErrors.price ? "true" : "false"}
+              />
+              {fieldErrors.price ? <p className={styles.fieldError}>{fieldErrors.price}</p> : null}
+            </div>
+            <div className={styles.formRowHalf}>
+              <label htmlFor="location">Location</label>
+              <p className={styles.helperText}>Share a clear meetup area buyers will recognize.</p>
+              <input
+                id="location"
+                name="location"
+                type="text"
+                value={form.location}
+                onChange={handleChange}
+                placeholder="Student Center"
+                aria-invalid={fieldErrors.location ? "true" : "false"}
+              />
+              {fieldErrors.location ? <p className={styles.fieldError}>{fieldErrors.location}</p> : null}
+            </div>
+          </div>
+        </section>
+
+        <section className={styles.formSection} aria-labelledby="sell-step-details">
+          <div className={styles.sectionIntro}>
+            <p className={styles.sectionEyebrow}>Step 2</p>
+            <h2 id="sell-step-details">Add details that build buyer trust</h2>
+            <p>Condition, category, and a clear description make the item easier to scan on Browse.</p>
+          </div>
+
+          <div className={styles.formRowGroup}>
+            <div className={styles.formRowHalf}>
+              <label htmlFor="condition">Condition</label>
+              <p className={styles.helperText}>Be honest so buyers know what to expect.</p>
+              <select
+                id="condition"
+                name="condition"
+                value={form.condition}
+                onChange={handleChange}
+                aria-invalid={fieldErrors.condition ? "true" : "false"}
+              >
+                <option value="">Select condition</option>
+                {CONDITION_OPTIONS.map((condition) => (
+                  <option key={condition} value={condition}>
+                    {condition}
+                  </option>
+                ))}
+              </select>
+              {fieldErrors.condition ? <p className={styles.fieldError}>{fieldErrors.condition}</p> : null}
+            </div>
+
+            <div className={styles.formRowHalf}>
+              <label htmlFor="category">Category</label>
+              <p className={styles.helperText}>Choose the closest match to help Browse filters work well.</p>
+              <select
+                id="category"
+                name="category"
+                value={form.category}
+                onChange={handleChange}
+                aria-invalid={fieldErrors.category ? "true" : "false"}
+              >
+                <option value="">Select category</option>
+                {CATEGORY_OPTIONS.map((category) => (
+                  <option key={category} value={category}>
+                    {category}
+                  </option>
+                ))}
+              </select>
+              {fieldErrors.category ? <p className={styles.fieldError}>{fieldErrors.category}</p> : null}
+            </div>
+          </div>
+
+          <div className={styles.formRow}>
+            <div className={styles.labelRow}>
+              <label htmlFor="description">Description</label>
+              <span className={styles.characterCount}>
+                {descriptionCount}/{DESCRIPTION_LIMIT}
+              </span>
+            </div>
+            <p className={styles.helperText}>Mention brand, size, wear, included accessories, and where you prefer to meet.</p>
+            <textarea
+              id="description"
+              name="description"
+              value={form.description}
               onChange={handleChange}
-              placeholder="45.00"
-              aria-invalid={fieldErrors.price ? "true" : "false"}
+              placeholder="Add details about the item and pickup instructions."
+              rows={5}
+              aria-invalid={fieldErrors.description ? "true" : "false"}
             />
-            {fieldErrors.price ? <p className={styles.fieldError}>{fieldErrors.price}</p> : null}
+            {fieldErrors.description ? <p className={styles.fieldError}>{fieldErrors.description}</p> : null}
           </div>
-          <div className={styles.formRowHalf}>
-            <label htmlFor="location">Location</label>
-            <p className={styles.helperText}>Share a clear meetup area buyers will recognize.</p>
-            <input
-              id="location"
-              name="location"
-              type="text"
-              value={form.location}
-              onChange={handleChange}
-              placeholder="Student Center"
-              aria-invalid={fieldErrors.location ? "true" : "false"}
-            />
-            {fieldErrors.location ? <p className={styles.fieldError}>{fieldErrors.location}</p> : null}
-          </div>
-        </div>
+        </section>
 
-        <div className={styles.formRowGroup}>
-          <div className={styles.formRowHalf}>
-            <label htmlFor="condition">Condition</label>
-            <p className={styles.helperText}>Be honest so buyers know what to expect.</p>
-            <select
-              id="condition"
-              name="condition"
-              value={form.condition}
-              onChange={handleChange}
-              aria-invalid={fieldErrors.condition ? "true" : "false"}
-            >
-              <option value="">Select condition</option>
-              {CONDITION_OPTIONS.map((condition) => (
-                <option key={condition} value={condition}>
-                  {condition}
-                </option>
-              ))}
-            </select>
-            {fieldErrors.condition ? <p className={styles.fieldError}>{fieldErrors.condition}</p> : null}
+        <section className={styles.formSection} aria-labelledby="sell-step-photo">
+          <div className={styles.sectionIntro}>
+            <p className={styles.sectionEyebrow}>Step 3</p>
+            <h2 id="sell-step-photo">Add a photo and preview your card</h2>
+            <p>Preview how buyers will see your listing before you post it.</p>
           </div>
 
-          <div className={styles.formRowHalf}>
-            <label htmlFor="category">Category</label>
-            <p className={styles.helperText}>Choose the closest match to help Browse filters work well.</p>
-            <select
-              id="category"
-              name="category"
-              value={form.category}
-              onChange={handleChange}
-              aria-invalid={fieldErrors.category ? "true" : "false"}
-            >
-              <option value="">Select category</option>
-              {CATEGORY_OPTIONS.map((category) => (
-                <option key={category} value={category}>
-                  {category}
-                </option>
-              ))}
-            </select>
-            {fieldErrors.category ? <p className={styles.fieldError}>{fieldErrors.category}</p> : null}
-          </div>
-        </div>
-
-        <div className={styles.formRow}>
-          <div className={styles.labelRow}>
-            <label htmlFor="description">Description</label>
-            <span className={styles.characterCount}>
-              {descriptionCount}/{DESCRIPTION_LIMIT}
-            </span>
-          </div>
-          <p className={styles.helperText}>Mention brand, size, wear, included accessories, and where you prefer to meet.</p>
-          <textarea
-            id="description"
-            name="description"
-            value={form.description}
-            onChange={handleChange}
-            placeholder="Add details about the item and pickup instructions."
-            rows={5}
-            aria-invalid={fieldErrors.description ? "true" : "false"}
-          />
-          {fieldErrors.description ? <p className={styles.fieldError}>{fieldErrors.description}</p> : null}
-        </div>
-
-        <div className={styles.formRow}>
-          <label htmlFor="imageUpload">Item image</label>
-          <p className={styles.helperText}>Upload a clear photo. Buyers are more likely to message when they can see the item.</p>
-          <div
-            className={isDraggingImage ? `${styles.dropZone} ${styles.dropZoneActive}` : styles.dropZone}
-            onDragEnter={(event) => {
-              event.preventDefault();
-              setIsDraggingImage(true);
-            }}
-            onDragOver={(event) => event.preventDefault()}
-            onDragLeave={() => setIsDraggingImage(false)}
-            onDrop={(event) => {
-              event.preventDefault();
-              const file = event.dataTransfer.files.item(0);
-              if (file) {
-                void handleImageUpload(file);
-              }
-            }}
-          >
-            <input
-              id="imageUpload"
-              name="imageUpload"
-              type="file"
-              accept={IMAGE_UPLOAD_ACCEPT}
-              onChange={(event) => {
-                const file = event.target.files?.[0];
+          <div className={styles.formRow}>
+            <label htmlFor="imageUpload">Item image</label>
+            <p className={styles.helperText}>Upload a clear photo. Buyers are more likely to message when they can see the item.</p>
+            <div
+              className={isDraggingImage ? `${styles.dropZone} ${styles.dropZoneActive}` : styles.dropZone}
+              onDragEnter={(event) => {
+                event.preventDefault();
+                setIsDraggingImage(true);
+              }}
+              onDragOver={(event) => event.preventDefault()}
+              onDragLeave={() => setIsDraggingImage(false)}
+              onDrop={(event) => {
+                event.preventDefault();
+                const file = event.dataTransfer.files.item(0);
                 if (file) {
                   void handleImageUpload(file);
                 }
               }}
-              aria-invalid={fieldErrors.imageUrl ? "true" : "false"}
-            />
-            <strong>{uploadingImage ? "Uploading image..." : "Drop an image here or tap to choose"}</strong>
-            <span>JPG, PNG, or WebP up to 8 MB. A thumbnail is generated before upload.</span>
-            {uploadingImage || uploadProgress > 0 ? (
-              <div className={styles.progressTrack} aria-label="Image upload progress">
-                <span style={{ width: `${uploadProgress}%` }} />
+            >
+              <input
+                id="imageUpload"
+                name="imageUpload"
+                type="file"
+                accept={IMAGE_UPLOAD_ACCEPT}
+                onChange={(event) => {
+                  const file = event.target.files?.[0];
+                  if (file) {
+                    void handleImageUpload(file);
+                  }
+                }}
+                aria-invalid={fieldErrors.imageUrl ? "true" : "false"}
+              />
+              <strong>{uploadingImage ? "Uploading image..." : "Drop an image here or tap to choose"}</strong>
+              <span>JPG, PNG, or WebP up to 8 MB. A thumbnail is generated before upload.</span>
+              {uploadingImage || uploadProgress > 0 ? (
+                <div className={styles.progressTrack} aria-label="Image upload progress">
+                  <span style={{ width: `${uploadProgress}%` }} />
+                </div>
+              ) : null}
+            </div>
+            {fieldErrors.imageUrl ? <p className={styles.fieldError}>{fieldErrors.imageUrl}</p> : null}
+          </div>
+
+          <div className={styles.previewCard}>
+            <div className={styles.previewImageFrame}>
+              <img src={previewImageUrl} alt="Listing preview" className={styles.imagePreview} />
+            </div>
+            <div className={styles.previewCopy}>
+              <p className={styles.previewEyebrow}>Buyer preview</p>
+              <div className={styles.previewTopline}>
+                <strong>{previewTitle}</strong>
+                <span>{previewPrice}</span>
               </div>
-            ) : null}
+              <div className={styles.previewPills}>
+                <span>{previewCategory}</span>
+                <span>{previewCondition}</span>
+                <span>{previewLocation}</span>
+              </div>
+              <p>{previewDescription}</p>
+            </div>
           </div>
-          {fieldErrors.imageUrl ? <p className={styles.fieldError}>{fieldErrors.imageUrl}</p> : null}
-          <div className={styles.imagePlaceholder}>
-            <img src={previewImageUrl} alt="Listing preview" className={styles.imagePreview} />
-          </div>
-        </div>
+        </section>
 
         <button type="submit" className={styles.submitButton} disabled={submitting || uploadingImage}>
-          {submitting ? "Creating..." : "Create listing"}
+          {submitting ? "Posting your listing..." : "Post listing"}
         </button>
         {error ? <p className={styles.formError}>{error}</p> : null}
       </form>

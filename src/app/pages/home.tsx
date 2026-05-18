@@ -40,6 +40,24 @@ const getListingTime = (listing: Listing): number => {
   return Number.isFinite(timestamp) ? timestamp : 0;
 };
 
+const getPostedLabel = (listing: Listing): string => {
+  const timestamp = getListingTime(listing);
+  if (!timestamp) {
+    return "Recently listed";
+  }
+
+  const elapsedDays = Math.floor((Date.now() - timestamp) / 86400000);
+  if (elapsedDays <= 0) {
+    return "Listed today";
+  }
+
+  if (elapsedDays === 1) {
+    return "Listed yesterday";
+  }
+
+  return `Listed ${elapsedDays} days ago`;
+};
+
 export const Home = () => {
   const [items, setItems] = useState<Listing[]>([]);
   const [loadingListings, setLoadingListings] = useState(true);
@@ -97,10 +115,15 @@ export const Home = () => {
         <div className={styles.heroInner}>
           <div className={styles.heroCopy}>
             <p className={styles.eyebrow}>Simple local student marketplace</p>
-            <h1 className={styles.heroTitle}>Buy, sell, and meet nearby with 505 Market.</h1>
+            <h1 className={styles.heroTitle}>The easiest way to buy and sell around campus.</h1>
             <p className={styles.heroText}>
-              505 Market is a student-friendly place to find textbooks, furniture, bikes, tech, and other everyday items around campus.
+              505 Market helps UNM students and nearby neighbors post items fast, message safely, and meet in familiar places without guessing how the app works.
             </p>
+            <div className={styles.heroHighlights}>
+              <span>Post in minutes</span>
+              <span>Message real local sellers</span>
+              <span>Meet on or near campus</span>
+            </div>
             <div className={styles.heroActions}>
               <a className={styles.primaryButton} href="/listings">
                 Browse listings
@@ -120,6 +143,7 @@ export const Home = () => {
               <img src={heroListingImage} alt={heroListing?.title ?? "Featured 505 Market listing"} className={styles.heroListingImage} />
               <span className={styles.heroListingOverlay} />
               <span className={styles.heroListingTag}>{heroListing?.category ?? "Fresh listings"}</span>
+              <span className={styles.heroListingStatus}>{heroListing ? getPostedLabel(heroListing) : "New seller posts appear here"}</span>
               <strong className={styles.heroListingTitle}>{heroListing?.title ?? "New campus finds"}</strong>
               <span className={styles.heroListingMeta}>
                 {heroListing ? `${heroListing.location} - ${heroListing.condition}` : "Browse student-posted items"}
@@ -142,6 +166,25 @@ export const Home = () => {
               </div>
             </div>
           </aside>
+        </div>
+      </section>
+
+      <section className={styles.trustSection} aria-labelledby="trust-title">
+        <div className={styles.trustCard}>
+          <div>
+            <p className={styles.sectionEyebrow}>Trust and safety</p>
+            <h2 className={styles.trustTitle} id="trust-title">
+              Meet safely and keep it simple.
+            </h2>
+            <p className={styles.trustText}>
+              Start with messages in 505 Market, choose a public meetup spot, and confirm the item details before you head out.
+            </p>
+          </div>
+          <div className={styles.trustChecklist}>
+            <span>Use a public campus or neighborhood meetup spot</span>
+            <span>Ask questions before you meet</span>
+            <span>Inspect the item before paying</span>
+          </div>
         </div>
       </section>
 
@@ -195,7 +238,13 @@ export const Home = () => {
             </div>
           ) : featuredListings.length > 0 ? (
             featuredListings.map((listing) => (
-              <ListingCard key={listing.id} listing={listing} href={`/listings/${listing.id}`} featuredLabel="Featured" />
+              <ListingCard
+                key={listing.id}
+                listing={listing}
+                href={`/listings/${listing.id}`}
+                featuredLabel="Fresh listing"
+                postedLabel={getPostedLabel(listing)}
+              />
             ))
           ) : (
             <div className={styles.emptyFeatured}>

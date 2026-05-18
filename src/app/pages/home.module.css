@@ -56,6 +56,26 @@
   line-height: 1.75;
 }
 
+.heroHighlights {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+  margin-top: 1.35rem;
+}
+
+.heroHighlights span {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2.2rem;
+  padding: 0.35rem 0.75rem;
+  border-radius: 999px;
+  background: rgba(255, 255, 255, 0.88);
+  color: #1e3a8a;
+  font-size: 0.84rem;
+  font-weight: 850;
+  box-shadow: 0 8px 18px rgba(15, 23, 42, 0.07);
+}
+
 .heroActions,
 .ctaActions {
   display: flex;
@@ -196,14 +216,24 @@
 }
 
 .heroListingTag,
-.listingBadge {
+.listingBadge,
+.heroListingStatus {
   width: fit-content;
   border-radius: 999px;
-  background: rgba(255, 255, 255, 0.9);
   padding: 0.35rem 0.65rem;
-  color: #1d4ed8;
   font-size: 0.78rem;
   font-weight: 900;
+}
+
+.heroListingTag,
+.listingBadge {
+  background: rgba(255, 255, 255, 0.9);
+  color: #1d4ed8;
+}
+
+.heroListingStatus {
+  background: rgba(15, 23, 42, 0.6);
+  color: #ffffff;
 }
 
 .heroListingTitle {
@@ -260,6 +290,52 @@
   color: #64748b;
   font-size: 0.86rem;
   font-weight: 800;
+}
+
+.trustSection {
+  width: min(100%, 76rem);
+  margin: 0 auto;
+  padding: 2rem 1.5rem 0;
+}
+
+.trustCard {
+  display: grid;
+  grid-template-columns: minmax(0, 1.1fr) minmax(18rem, 0.9fr);
+  gap: 1.5rem;
+  padding: 1.5rem;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 1rem;
+  background: linear-gradient(135deg, #ffffff, #eff6ff);
+  box-shadow: 0 18px 36px rgba(15, 23, 42, 0.07);
+}
+
+.trustTitle {
+  margin: 0.35rem 0 0;
+  color: #0f172a;
+  font-size: clamp(1.55rem, 2.4vw, 2.2rem);
+}
+
+.trustText {
+  margin: 0.75rem 0 0;
+  color: #475569;
+  line-height: 1.7;
+}
+
+.trustChecklist {
+  display: grid;
+  gap: 0.75rem;
+}
+
+.trustChecklist span {
+  display: flex;
+  align-items: center;
+  min-height: 3rem;
+  padding: 0.85rem 1rem;
+  border-radius: 0.9rem;
+  background: #ffffff;
+  color: #0f172a;
+  font-weight: 800;
+  box-shadow: 0 12px 24px rgba(15, 23, 42, 0.05);
 }
 
 .section,
@@ -635,6 +711,10 @@
   .ctaCard {
     display: grid;
     align-items: start;
+  }
+
+  .trustCard {
+    grid-template-columns: 1fr;
   }
 
   .ctaActions {

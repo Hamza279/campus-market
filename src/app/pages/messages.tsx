@@ -161,6 +161,7 @@ export const Messages = ({ conversationId }: MessagesProps) => {
   return (
     <div className={styles.page}>
       <header className={styles.header}>
+        <p className={styles.eyebrow}>505 Market inbox</p>
         <h1>Messages</h1>
         <p className={styles.subtitle}>Buyer and seller conversations will appear here when someone contacts you from a listing.</p>
       </header>
@@ -182,11 +183,17 @@ export const Messages = ({ conversationId }: MessagesProps) => {
 
           {!loadingInbox && conversations.length === 0 ? (
             <div className={styles.emptyState}>
+              <p className={styles.emptyEyebrow}>No conversations yet</p>
               <h2>No messages yet</h2>
               <p>Once a buyer reaches out, your real conversations will appear here. Nothing is pre-filled or fake.</p>
-              <a href="/listings" className={styles.actionLink}>
-                Browse listings
-              </a>
+              <div className={styles.emptyActions}>
+                <a href="/listings" className={styles.actionLink}>
+                  Browse listings
+                </a>
+                <a href="/dashboard" className={styles.secondaryLink}>
+                  Open your selling hub
+                </a>
+              </div>
             </div>
           ) : null}
 
@@ -222,6 +229,7 @@ export const Messages = ({ conversationId }: MessagesProps) => {
         <section className={styles.thread} aria-label="Conversation thread">
           {!activeId ? (
             <div className={styles.threadEmpty}>
+              <p className={styles.emptyEyebrow}>Start here</p>
               <h2>Select a conversation</h2>
               <p>Choose a thread to read details, reply, and keep the sale moving.</p>
             </div>

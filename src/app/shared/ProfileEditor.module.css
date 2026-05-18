@@ -89,6 +89,13 @@
   gap: 1rem;
 }
 
+.content {
+  display: grid;
+  grid-template-columns: minmax(0, 1.55fr) minmax(18rem, 0.95fr);
+  gap: 1rem;
+  align-items: start;
+}
+
 .grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
@@ -129,6 +136,127 @@
   gap: 0.75rem;
 }
 
+.previewPanel {
+  display: grid;
+  gap: 1rem;
+}
+
+.completionCard,
+.publicCard {
+  display: grid;
+  gap: 0.9rem;
+  padding: 1rem;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 1rem;
+  background: linear-gradient(180deg, #ffffff 0%, #f8fafc 100%);
+}
+
+.cardEyebrow {
+  margin: 0 0 0.35rem;
+  color: #2563eb;
+  font-size: 0.75rem;
+  font-weight: 900;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+}
+
+.completionCard strong {
+  display: block;
+  color: #0f172a;
+  font-size: 1.35rem;
+}
+
+.completionCard p {
+  margin: 0.45rem 0 0;
+  color: #64748b;
+  line-height: 1.6;
+}
+
+.progressTrack {
+  overflow: hidden;
+  height: 0.6rem;
+  border-radius: 999px;
+  background: #dbeafe;
+}
+
+.progressTrack span {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: linear-gradient(90deg, #2563eb, #0f766e);
+}
+
+.previewHeader {
+  display: flex;
+  gap: 0.9rem;
+  align-items: center;
+}
+
+.previewAvatar,
+.previewAvatarFallback {
+  width: 4.25rem;
+  height: 4.25rem;
+  border-radius: 999px;
+}
+
+.previewAvatar {
+  object-fit: cover;
+}
+
+.previewAvatarFallback {
+  display: grid;
+  place-items: center;
+  background: linear-gradient(135deg, #dbeafe 0%, #bfdbfe 100%);
+  color: #1d4ed8;
+  font-size: 1.4rem;
+  font-weight: 900;
+}
+
+.previewHeader h3,
+.previewBlock h4 {
+  margin: 0;
+  color: #0f172a;
+}
+
+.previewHeader p,
+.previewBio {
+  margin: 0.35rem 0 0;
+  color: #475569;
+  line-height: 1.65;
+}
+
+.previewBlock {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.pillRow {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.55rem;
+}
+
+.infoPill,
+.interestPill {
+  display: inline-flex;
+  align-items: center;
+  min-height: 2rem;
+  padding: 0.45rem 0.75rem;
+  border-radius: 999px;
+  font-size: 0.86rem;
+  font-weight: 800;
+}
+
+.infoPill {
+  background: #eff6ff;
+  color: #1d4ed8;
+}
+
+.interestPill {
+  background: #ecfeff;
+  color: #0f766e;
+}
+
 .saveButton,
 .previewLink {
   display: inline-flex;
@@ -163,6 +291,10 @@
 @media (max-width: 760px) {
   .header {
     flex-direction: column;
+  }
+
+  .content {
+    grid-template-columns: 1fr;
   }
 
   .grid {
