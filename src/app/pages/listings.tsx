@@ -738,6 +738,16 @@ export const Listings = () => {
                     {saved ? "Saved" : "Save"}
                   </button>
                 }
+                footerActions={
+                  <div className={styles.cardActions}>
+                    <a href={`/listings/${item.id}`} className={styles.cardActionLink}>
+                      View details
+                    </a>
+                    <a href={`/listings/${item.id}#contact-seller`} className={styles.cardContactLink}>
+                      Contact seller
+                    </a>
+                  </div>
+                }
               />
             );
           })}

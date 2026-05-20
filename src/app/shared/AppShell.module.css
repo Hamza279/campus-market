@@ -361,6 +361,7 @@
 }
 
 .bottomNavLink {
+  position: relative;
   text-decoration: none;
 }
 
@@ -430,6 +431,12 @@
     background: linear-gradient(180deg, #fff3e1, #ffe4c0);
     color: var(--market-primary-strong);
     box-shadow: 0 12px 24px rgba(201, 111, 59, 0.16);
+  }
+
+  .bottomNavLink .notificationBadge {
+    position: absolute;
+    top: 0.35rem;
+    right: max(0.55rem, 18%);
   }
 }
 

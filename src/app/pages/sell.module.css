@@ -348,9 +348,10 @@ textarea {
   min-height: 2.35rem;
   padding: 0.55rem 0.95rem;
   border-radius: 999px;
-  background: #111827;
+  background: linear-gradient(135deg, #c96f3b, #a95426);
   color: #ffffff !important;
   font-weight: 850;
+  box-shadow: 0 12px 24px rgba(169, 84, 38, 0.18);
 }
 
 .dropZoneActive {

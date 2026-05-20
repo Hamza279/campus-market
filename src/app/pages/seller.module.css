@@ -177,8 +177,9 @@
   min-height: 2.45rem;
   padding: 0.6rem 0.95rem;
   border-radius: 0.75rem;
-  background: #111827;
-  color: #ffffff;
+  border: 1px solid rgba(201, 111, 59, 0.28);
+  background: #fff0dc;
+  color: #a95426;
   font-weight: 850;
   text-decoration: none;
 }
