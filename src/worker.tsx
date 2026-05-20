@@ -19,7 +19,7 @@ import { defineApp, ErrorResponse } from "rwsdk/worker";
 import { getImageUrlValidationError, normalizeImageUrlForSave } from "@/app/pages/image-url";
 import { LISTINGS_REALTIME_ROOM, NEW_LISTING_EVENT_KEY, type NewListingEvent } from "@/app/pages/listings.realtime";
 import type { Listing } from "@/app/pages/listings.data";
-import { buildGoogleAuthUrl, exchangeGoogleCode, upsertGoogleUser } from "@/auth/google";
+import { buildGoogleAuthUrl, exchangeGoogleCode, getGoogleRedirectUri, upsertGoogleUser } from "@/auth/google";
 import {
   authenticateLocalUser,
   createLocalUser,
@@ -1036,6 +1036,26 @@ const getConversationSummaries = async (db: D1Database, userId: string) => {
   return (result.results ?? []).map((row) => toConversationSummary(row, userId));
 };
 
+const getUnreadMessageCount = async (db: D1Database, userId: string) => {
+  await ensureMarketplaceSchema(db);
+
+  const row = await db
+    .prepare(
+      `
+        SELECT COUNT(*) AS unread_count
+        FROM messages
+        INNER JOIN conversations ON conversations.id = messages.conversation_id
+        WHERE (conversations.buyer_id = ? OR conversations.seller_id = ?)
+          AND messages.sender_id != ?
+          AND messages.read_at IS NULL
+      `,
+    )
+    .bind(userId, userId, userId)
+    .first<{ unread_count: number }>();
+
+  return Number(row?.unread_count ?? 0);
+};
+
 const getConversationForUser = async (db: D1Database, conversationId: string, userId: string) => {
   await ensureMarketplaceSchema(db);
 
@@ -1434,6 +1454,35 @@ const withAppShell = (children: React.ReactNode, currentUser: AuthUser | null = 
   return <AppShell currentUser={currentUser}>{children}</AppShell>;
 };
 
+const getGoogleConfigStatus = (env: Env, request: Request) => {
+  const missing = [
+    env.GOOGLE_CLIENT_ID ? "" : "GOOGLE_CLIENT_ID",
+    env.GOOGLE_CLIENT_SECRET ? "" : "GOOGLE_CLIENT_SECRET",
+    env.APP_URL ? "" : "APP_URL",
+  ].filter(Boolean);
+
+  return {
+    enabled: missing.length === 0,
+    missing,
+    redirectUri: getGoogleRedirectUri(request, env),
+  };
+};
+
+const logMissingGoogleConfig = (env: Env, request: Request) => {
+  const status = getGoogleConfigStatus(env, request);
+  if (status.enabled) {
+    return status;
+  }
+
+  console.warn("[auth] Google OAuth is not configured.", {
+    missingEnv: status.missing,
+    expectedCallback: "https://campus-market.hamzaalkasasbeh96.workers.dev/auth/callback/google",
+    resolvedCallback: status.redirectUri,
+  });
+
+  return status;
+};
+
 const createApp = (env: Env) => {
   return defineApp([
     setCommonHeaders(),
@@ -1469,9 +1518,11 @@ const createApp = (env: Env) => {
               return redirect(returnTo === "/" ? "/dashboard" : returnTo);
             }
 
+            const googleConfig = logMissingGoogleConfig(env, request);
+
             return withAppShell(
               <Login
-                googleEnabled={Boolean(env.GOOGLE_CLIENT_ID && env.GOOGLE_CLIENT_SECRET)}
+                googleEnabled={googleConfig.enabled}
                 appleEnabled={false}
                 error={url.searchParams.get("error") ?? undefined}
                 success={url.searchParams.get("loggedOut") === "1" ? "Logged out." : (url.searchParams.get("success") ?? undefined)}
@@ -1555,7 +1606,8 @@ const createApp = (env: Env) => {
         }),
 
         route("/auth/google", async ({ request, response }) => {
-          if (!env.GOOGLE_CLIENT_ID || !env.GOOGLE_CLIENT_SECRET) {
+          const googleConfig = logMissingGoogleConfig(env, request);
+          if (!googleConfig.enabled) {
             return redirect("/login?error=Google%20login%20needs%20configuration.", response.headers);
           }
 
@@ -1816,6 +1868,17 @@ const createApp = (env: Env) => {
             }
 
             return json(await getConversationSummaries(env.campusmarket_db, ctx.user.id));
+          },
+        }),
+
+        route("/api/messages/unread-count", {
+          get: async ({ ctx }: { ctx: AppContext }) => {
+            await ensureMarketplaceSchema(env.campusmarket_db);
+            if (!ctx.user) {
+              return json({ unreadCount: 0 }, { status: 401 });
+            }
+
+            return json({ unreadCount: await getUnreadMessageCount(env.campusmarket_db, ctx.user.id) });
           },
         }),
 

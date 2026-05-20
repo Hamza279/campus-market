@@ -7,6 +7,7 @@ import styles from "./AppShell.module.css";
 interface AppShellProps {
   children: React.ReactNode;
   currentUser?: Pick<AuthUser, "email" | "name" | "avatarUrl"> | null;
+  initialUnreadMessageCount?: number;
 }
 
 interface NavItem {
@@ -66,9 +67,10 @@ const navItems: NavItem[] = [
   },
 ];
 
-export const AppShell = ({ children, currentUser = null }: AppShellProps) => {
+export const AppShell = ({ children, currentUser = null, initialUnreadMessageCount = 0 }: AppShellProps) => {
   const [menuOpen, setMenuOpen] = useState(false);
   const [pathname, setPathname] = useState(typeof window === "undefined" ? "/" : window.location.pathname);
+  const [unreadMessageCount, setUnreadMessageCount] = useState(initialUnreadMessageCount);
   const menuButtonRef = useRef<HTMLButtonElement>(null);
   const mobileNavRef = useRef<HTMLElement>(null);
 
@@ -101,6 +103,46 @@ export const AppShell = ({ children, currentUser = null }: AppShellProps) => {
       window.removeEventListener("pageshow", syncPathname);
     };
   }, []);
+
+  useEffect(() => {
+    if (!currentUser) {
+      setUnreadMessageCount(0);
+      return;
+    }
+
+    let cancelled = false;
+
+    const loadUnreadCount = async () => {
+      try {
+        const response = await fetch("/api/messages/unread-count", {
+          headers: { Accept: "application/json" },
+        });
+
+        if (!response.ok) {
+          return;
+        }
+
+        const data = (await response.json()) as { unreadCount?: number };
+        if (!cancelled) {
+          setUnreadMessageCount(Number(data.unreadCount ?? 0));
+        }
+      } catch {
+        // Keep the current badge value if the background refresh fails.
+      }
+    };
+
+    void loadUnreadCount();
+    const interval = window.setInterval(loadUnreadCount, 15000);
+    window.addEventListener("focus", loadUnreadCount);
+    window.addEventListener("pageshow", loadUnreadCount);
+
+    return () => {
+      cancelled = true;
+      window.clearInterval(interval);
+      window.removeEventListener("focus", loadUnreadCount);
+      window.removeEventListener("pageshow", loadUnreadCount);
+    };
+  }, [currentUser]);
 
   useEffect(() => {
     if (!menuOpen) {
@@ -190,7 +232,12 @@ export const AppShell = ({ children, currentUser = null }: AppShellProps) => {
               aria-current={active ? "page" : undefined}
               onClick={closeMenu}
             >
-              {item.mobileLabel ?? item.label}
+              <span>{item.mobileLabel ?? item.label}</span>
+              {item.href === "/messages" && unreadMessageCount > 0 ? (
+                <span className={styles.notificationBadge} aria-label={`${unreadMessageCount} unread messages`}>
+                  {unreadMessageCount > 99 ? "99+" : unreadMessageCount}
+                </span>
+              ) : null}
             </a>
           );
         })}
@@ -228,7 +275,12 @@ export const AppShell = ({ children, currentUser = null }: AppShellProps) => {
                 className={active ? `${styles.navLink} ${styles.activeLink}` : styles.navLink}
                 aria-current={active ? "page" : undefined}
               >
-                {item.label}
+                <span>{item.label}</span>
+                {item.href === "/messages" && unreadMessageCount > 0 ? (
+                  <span className={styles.notificationBadge} aria-label={`${unreadMessageCount} unread messages`}>
+                    {unreadMessageCount > 99 ? "99+" : unreadMessageCount}
+                  </span>
+                ) : null}
               </a>
             );
           })}
@@ -281,6 +333,11 @@ export const AppShell = ({ children, currentUser = null }: AppShellProps) => {
               <span className={styles.bottomNavIcon} aria-hidden="true">
                 {item.icon}
               </span>
+              {item.href === "/messages" && unreadMessageCount > 0 ? (
+                <span className={styles.notificationBadge} aria-label={`${unreadMessageCount} unread messages`}>
+                  {unreadMessageCount > 99 ? "99+" : unreadMessageCount}
+                </span>
+              ) : null}
               <span className={styles.bottomNavLabel}>{item.shortLabel ?? item.label}</span>
             </a>
           );

@@ -170,6 +170,19 @@
   margin-top: 1rem;
 }
 
+.contactLink {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  min-height: 2.45rem;
+  padding: 0.6rem 0.95rem;
+  border-radius: 0.75rem;
+  background: #111827;
+  color: #ffffff;
+  font-weight: 850;
+  text-decoration: none;
+}
+
 @media (max-width: 640px) {
   .page {
     padding: 1.25rem 1rem 2rem;

@@ -103,7 +103,19 @@ export const SellerProfile = ({ sellerId }: SellerProfileProps) => {
         {loaded && items.length === 0 ? <p>This seller does not have any active listings right now.</p> : null}
         <div className={styles.grid}>
           {items.map((item) => (
-            <ListingCard key={item.id} listing={item} href={`/listings/${item.id}`} postedLabel={item.createdAt ? "Recently posted" : undefined} />
+            <ListingCard
+              key={item.id}
+              listing={item}
+              href={`/listings/${item.id}`}
+              postedLabel={item.createdAt ? "Recently posted" : undefined}
+              statusLabel={item.sold ? "Sold" : "Active"}
+              statusTone={item.sold ? "sold" : "active"}
+              footerActions={
+                <a href={`/listings/${item.id}#contact-seller`} className={styles.contactLink}>
+                  Contact seller
+                </a>
+              }
+            />
           ))}
         </div>
       </section>

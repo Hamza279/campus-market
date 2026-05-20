@@ -221,7 +221,7 @@ export const ListingDetail = ({ listingId }: ListingDetailProps) => {
                 View seller profile
               </a>
             </div>
-            <div className={styles.contactPanel}>
+            <div className={styles.contactPanel} id="contact-seller">
               <textarea
                 value={contactMessage}
                 onChange={(event) => setContactMessage(event.target.value)}

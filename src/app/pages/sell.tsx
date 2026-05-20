@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import styles from "./sell.module.css";
-import { getListingImageSrc } from "./image-url";
+import { getImageUrlValidationError, getListingImageSrc } from "./image-url";
 import { createImageThumbnail, getImageFileValidationError, IMAGE_UPLOAD_ACCEPT } from "./image-upload";
 import { addListing, uploadListingImage, type UploadedListingImage } from "./listings.data";
 
@@ -13,6 +13,7 @@ interface SellForm {
   condition: string;
   category: string;
   description: string;
+  imageUrl: string;
 }
 
 type SellFormErrors = Partial<Record<keyof SellForm, string>> & {
@@ -48,6 +49,7 @@ export const Sell = () => {
     condition: "",
     category: "",
     description: "",
+    imageUrl: "",
   });
   const [gallery, setGallery] = useState<UploadedListingImage[]>([]);
   const [submitting, setSubmitting] = useState(false);
@@ -58,7 +60,7 @@ export const Sell = () => {
   const [fieldErrors, setFieldErrors] = useState<SellFormErrors>({});
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
   const [createdListingId, setCreatedListingId] = useState<string | null>(null);
-  const previewImageUrl = getListingImageSrc(gallery[0]?.thumbnailUrl || gallery[0]?.imageUrl || "");
+  const previewImageUrl = getListingImageSrc(gallery[0]?.thumbnailUrl || gallery[0]?.imageUrl || form.imageUrl);
   const descriptionCount = form.description.length;
   const previewTitle = form.title.trim() || "Your listing preview";
   const previewPrice = form.price.trim() ? `$${Number.parseFloat(form.price || "0").toFixed(2)}` : "$0.00";
@@ -101,8 +103,8 @@ export const Sell = () => {
       errors.description = `Description must be ${DESCRIPTION_LIMIT} characters or fewer.`;
     }
 
-    if (gallery.length === 0) {
-      errors.imageUpload = "Upload at least one item image.";
+    if (form.imageUrl && getImageUrlValidationError(form.imageUrl)) {
+      errors.imageUrl = "Enter a valid http or https image URL.";
     }
 
     return errors;
@@ -136,6 +138,7 @@ export const Sell = () => {
       const next = { ...current };
       delete next[name as keyof SellForm];
       delete next.imageUpload;
+      delete next.imageUrl;
       return next;
     });
   };
@@ -208,12 +211,12 @@ export const Sell = () => {
         condition: form.condition,
         category: form.category,
         description: form.description.trim(),
-        image: gallery[0]?.imageUrl ?? "",
-        imageUrl: gallery[0]?.imageUrl ?? "",
+        image: gallery[0]?.imageUrl ?? form.imageUrl.trim(),
+        imageUrl: gallery[0]?.imageUrl ?? form.imageUrl.trim(),
         imageKey: gallery[0]?.imageKey ?? "",
         thumbnailUrl: gallery[0]?.thumbnailUrl ?? "",
         thumbnailKey: gallery[0]?.thumbnailKey ?? "",
-        galleryUrls: gallery.map((item) => item.imageUrl),
+        galleryUrls: gallery.length > 0 ? gallery.map((item) => item.imageUrl) : form.imageUrl.trim() ? [form.imageUrl.trim()] : [],
         galleryThumbnailUrls: gallery.map((item) => item.thumbnailUrl),
         galleryKeys: gallery.map((item) => item.imageKey),
         galleryThumbnailKeys: gallery.map((item) => item.thumbnailKey),
@@ -229,6 +232,7 @@ export const Sell = () => {
         condition: "",
         category: "",
         description: "",
+        imageUrl: "",
       });
       setGallery([]);
     } catch (submitError) {
@@ -401,7 +405,7 @@ export const Sell = () => {
 
           <div className={styles.formRow}>
             <label htmlFor="imageUpload">Item images</label>
-            <p className={styles.helperText}>Upload one or more clear photos. The first image becomes the main preview.</p>
+            <p className={styles.helperText}>Upload one or more clear photos, or paste an image URL as a fallback.</p>
             <div
               className={isDraggingImage ? `${styles.dropZone} ${styles.dropZoneActive}` : styles.dropZone}
               onDragEnter={(event) => {
@@ -433,7 +437,8 @@ export const Sell = () => {
                 aria-invalid={fieldErrors.imageUpload ? "true" : "false"}
               />
               <strong>{uploadingImage ? "Uploading image..." : "Drop images here or tap to choose"}</strong>
-              <span>JPG, PNG, or WebP up to 8 MB each. A thumbnail is generated before upload.</span>
+              <span>Attach photo from your device. JPG, PNG, or WebP up to 8 MB each.</span>
+              <span className={styles.attachButton}>Attach photo</span>
               {uploadingImage || uploadProgress > 0 ? (
                 <div className={styles.progressTrack} aria-label="Image upload progress">
                   <span style={{ width: `${uploadProgress}%` }} />
@@ -442,6 +447,19 @@ export const Sell = () => {
               {galleryCount > 0 ? <small>{galleryCount} image{galleryCount === 1 ? "" : "s"} ready for your listing.</small> : null}
             </div>
             {fieldErrors.imageUpload ? <p className={styles.fieldError}>{fieldErrors.imageUpload}</p> : null}
+            {fieldErrors.imageUrl ? <p className={styles.fieldError}>{fieldErrors.imageUrl}</p> : null}
+            <div className={styles.urlFallbackRow}>
+              <label htmlFor="imageUrl">Or paste an image URL</label>
+              <input
+                id="imageUrl"
+                name="imageUrl"
+                type="url"
+                value={form.imageUrl}
+                onChange={handleChange}
+                placeholder="https://example.com/item-photo.jpg"
+                aria-invalid={fieldErrors.imageUrl ? "true" : "false"}
+              />
+            </div>
           </div>
 
           <div className={styles.previewCard}>
@@ -458,7 +476,13 @@ export const Sell = () => {
                 <span>{previewCategory}</span>
                 <span>{previewCondition}</span>
                 <span>{previewLocation}</span>
-                <span>{galleryCount > 0 ? `${galleryCount} photo${galleryCount === 1 ? "" : "s"}` : "No photos yet"}</span>
+                <span>
+                  {galleryCount > 0
+                    ? `${galleryCount} photo${galleryCount === 1 ? "" : "s"}`
+                    : form.imageUrl.trim()
+                      ? "URL photo"
+                      : "No photos yet"}
+                </span>
               </div>
               <p>{previewDescription}</p>
             </div>
